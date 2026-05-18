@@ -103,6 +103,20 @@ function AdminPage() {
   const statusTimeoutRef = useRef<number | null>(null);
   const nomeClienteRef = useRef<HTMLInputElement | null>(null);
   const usernameRef = useRef<HTMLInputElement | null>(null);
+  const hasLoadedAvvisiRef = useRef(false);
+  const avvisiListRef = useRef<
+    Array<{
+      id: string;
+      giardiniere_id: string;
+      giardiniere_username?: string;
+      cliente_id?: string;
+      cliente_nome?: string;
+      title: string;
+      message: string;
+      read: number;
+      created_at: string;
+    }>
+  >([]);
 
   const statusBoxClasses = `absolute left-1/2 top-1/2 z-[9999] w-[min(680px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl px-4 py-3 text-center text-sm font-medium shadow-2xl transition-transform duration-200 ${
     statusType === "success"
@@ -182,8 +196,6 @@ function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedAction !== "avvisi") return;
-
     fetchAvvisi();
     const intervalId = window.setInterval(() => {
       fetchAvvisi();
@@ -192,7 +204,7 @@ function AdminPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [selectedAction]);
+  }, []);
 
   const handleActionClick = (action: string) => {
     setSelectedAction(action);
@@ -323,7 +335,36 @@ function AdminPage() {
         return;
       }
       const data = await res.json();
-      setAvvisiList(Array.isArray(data.notifiche) ? data.notifiche : []);
+      const nextAvvisi = Array.isArray(data.notifiche) ? data.notifiche : [];
+
+      if (hasLoadedAvvisiRef.current) {
+        const previousUnreadIds = new Set(
+          avvisiListRef.current
+            .filter((item) => item.read === 0)
+            .map((item) => item.id)
+        );
+
+        const newlyRead = nextAvvisi.filter(
+          (item) => item.read === 1 && previousUnreadIds.has(item.id)
+        );
+
+        if (newlyRead.length > 0) {
+          const firstRead = newlyRead[0];
+          const giardiniereName =
+            firstRead.giardiniere_username || "Il giardiniere";
+          const message =
+            newlyRead.length === 1
+              ? `${giardiniereName} ha letto l'avviso.`
+              : `${newlyRead.length} giardinieri hanno letto gli avvisi.`;
+          setStatusType("success");
+          setStatusMessage(message);
+          clearStatusAfterDelay();
+        }
+      }
+
+      hasLoadedAvvisiRef.current = true;
+      avvisiListRef.current = nextAvvisi;
+      setAvvisiList(nextAvvisi);
     } catch (error) {
       console.error("Caricamento avvisi fallito", error);
     }
@@ -633,17 +674,8 @@ function AdminPage() {
         throw new Error(message);
       }
 
-      const recipientsCount = Number(result?.recipientsCount ?? 0);
-      const pushStats = result?.pushStats;
-      const acceptedCount = Number(pushStats?.acceptedCount ?? 0);
-      const subscriptionCount = Number(pushStats?.subscriptionCount ?? 0);
-
       setStatusType("success");
-      setStatusMessage(
-        subscriptionCount > 0
-          ? `Avviso inviato a ${recipientsCount} giardiniere/i. Consegna push accettata per ${acceptedCount} dispositivo/i su ${subscriptionCount} registrato/i.`
-          : `Avviso salvato per ${recipientsCount} giardiniere/i, ma nessun dispositivo push risulta registrato.`
-      );
+      setStatusMessage("Avviso inviato correttamente.");
       clearStatusAfterDelay();
       clearAvvisoForm();
       await fetchAvvisi();
