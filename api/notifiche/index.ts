@@ -1,3 +1,5 @@
+import { sendPushToGiardinieri } from '../../lib/push';
+
 async function createDbClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
@@ -175,6 +177,17 @@ export default async function handler(req: any, res: any) {
         [crypto.randomUUID(), giardiniereId, '', trimmedClienteId || null, trimmedTitle, trimmedMessage, 0, createdAt]
       );
     }
+
+    await sendPushToGiardinieri(db, recipients, {
+      title: trimmedTitle,
+      body: trimmedMessage,
+      data: {
+        url: '/',
+        type: 'notifica',
+        clienteId: trimmedClienteId || null,
+        createdAt
+      }
+    });
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');

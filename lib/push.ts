@@ -1,0 +1,110 @@
+import webpush from 'web-push';
+
+type PushPayload = {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+};
+
+type PushSubscriptionRecord = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+let isConfigured = false;
+
+function getVapidKeys() {
+  const publicKey = process.env.VAPID_PUBLIC_KEY?.toString().trim() ?? '';
+  const privateKey = process.env.VAPID_PRIVATE_KEY?.toString().trim() ?? '';
+  return { publicKey, privateKey };
+}
+
+function ensureConfigured() {
+  if (isConfigured) {
+    return;
+  }
+
+  const { publicKey, privateKey } = getVapidKeys();
+  if (!publicKey || !privateKey) {
+    throw new Error('VAPID keys are not configured on server environment variables.');
+  }
+
+  webpush.setVapidDetails('mailto:admin@geogiardini.it', publicKey, privateKey);
+  isConfigured = true;
+}
+
+export function getPushPublicKey() {
+  const { publicKey } = getVapidKeys();
+  return publicKey;
+}
+
+export async function ensurePushSubscriptionsTable(db: any) {
+  await db.execute(
+    'CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, giardiniere_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    []
+  );
+}
+
+export async function savePushSubscription(
+  db: any,
+  giardiniereId: string,
+  subscription: PushSubscriptionRecord
+) {
+  const now = new Date().toISOString();
+  await db.execute(
+    'INSERT INTO push_subscriptions (id, giardiniere_id, endpoint, p256dh, auth, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET giardiniere_id = excluded.giardiniere_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at',
+    [
+      crypto.randomUUID(),
+      giardiniereId,
+      subscription.endpoint,
+      subscription.p256dh,
+      subscription.auth,
+      now,
+      now
+    ]
+  );
+}
+
+export async function sendPushToGiardinieri(
+  db: any,
+  giardinieriIds: string[],
+  payload: PushPayload
+) {
+  if (!giardinieriIds.length) return;
+
+  ensureConfigured();
+  await ensurePushSubscriptionsTable(db);
+
+  const placeholders = giardinieriIds.map(() => '?').join(',');
+  const result = await db.execute(
+    `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE giardiniere_id IN (${placeholders})`,
+    giardinieriIds
+  );
+
+  const rows = (Array.isArray(result.rows) ? result.rows : []) as any[];
+  for (const row of rows) {
+    const endpoint = row?.endpoint?.toString?.() ?? '';
+    const p256dh = row?.p256dh?.toString?.() ?? '';
+    const auth = row?.auth?.toString?.() ?? '';
+    if (!endpoint || !p256dh || !auth) {
+      continue;
+    }
+
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint,
+          keys: { p256dh, auth }
+        },
+        JSON.stringify(payload)
+      );
+    } catch (error: any) {
+      const statusCode = Number(error?.statusCode ?? 0);
+      if (statusCode === 404 || statusCode === 410) {
+        await db.execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+      }
+      console.error('Push send failed for endpoint', endpoint, error);
+    }
+  }
+}

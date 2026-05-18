@@ -106,6 +106,14 @@ function GiardinierePage() {
 
         const publicKeyResponse = await fetch('/api/push-public-key');
         const publicKeyData = await publicKeyResponse.json().catch(() => null);
+        if (!publicKeyResponse.ok) {
+          const serverMessage =
+            publicKeyData?.message ||
+            `Errore ${publicKeyResponse.status} recuperando la chiave push dal server.`;
+          setPushError(serverMessage);
+          setPushStatus('unknown');
+          return;
+        }
         const applicationServerKey = urlBase64ToUint8Array(
           publicKeyData?.publicKey || ''
         );
