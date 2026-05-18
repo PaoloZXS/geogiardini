@@ -1,4 +1,4 @@
-import { createDbClient } from './db';
+import { createDbClient } from "./db.js";
 
 function normalizeColumnName(raw: unknown) {
   return (raw ?? "").toString().trim().toLowerCase();

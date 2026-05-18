@@ -1,8 +1,8 @@
-import { createDbClient } from './db';
+import { createDbClient } from "./db.js";
 
 async function ensurePushSubscriptionsTable(db: any) {
   await db.execute(
-    'CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, giardiniere_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    "CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, giardiniere_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
     []
   );
 }
@@ -14,7 +14,7 @@ async function savePushSubscription(
 ) {
   const now = new Date().toISOString();
   await db.execute(
-    'INSERT INTO push_subscriptions (id, giardiniere_id, endpoint, p256dh, auth, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET giardiniere_id = excluded.giardiniere_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at',
+    "INSERT INTO push_subscriptions (id, giardiniere_id, endpoint, p256dh, auth, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET giardiniere_id = excluded.giardiniere_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at",
     [
       crypto.randomUUID(),
       giardiniereId,
@@ -28,18 +28,18 @@ async function savePushSubscription(
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
+  if (req.method !== "POST") {
     res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: false, message: 'Method not allowed.' }));
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ success: false, message: "Method not allowed." }));
     return;
   }
 
   try {
     const parsedBody =
-      typeof req.body === 'string'
-        ? JSON.parse(req.body || '{}')
-        : req.body ?? {};
+      typeof req.body === "string"
+        ? JSON.parse(req.body || "{}")
+        : (req.body ?? {});
 
     const { giardiniereId, subscription } = parsedBody;
     const normalizedGiardiniereId = giardiniereId?.toString().trim();
@@ -49,8 +49,13 @@ export default async function handler(req: any, res: any) {
 
     if (!normalizedGiardiniereId || !endpoint || !p256dh || !auth) {
       res.statusCode = 400;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: false, message: 'Sottoscrizione push non valida.' }));
+      res.setHeader("Content-Type", "application/json");
+      res.end(
+        JSON.stringify({
+          success: false,
+          message: "Sottoscrizione push non valida."
+        })
+      );
       return;
     }
 
@@ -64,16 +69,16 @@ export default async function handler(req: any, res: any) {
     });
 
     res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ success: true }));
   } catch (error) {
-    console.error('Saving push subscription failed', error);
+    console.error("Saving push subscription failed", error);
     const details =
       error instanceof Error && error.message
         ? error.message
-        : 'Errore sconosciuto durante registrazione push.';
+        : "Errore sconosciuto durante registrazione push.";
     res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader("Content-Type", "application/json");
     res.end(
       JSON.stringify({
         success: false,

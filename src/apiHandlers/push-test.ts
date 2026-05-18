@@ -1,4 +1,4 @@
-import { createDbClient } from './db';
+import { createDbClient } from "./db.js";
 
 async function ensurePushSubscriptionsTable(db: any) {
   await db.execute(
@@ -57,7 +57,7 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    const { sendPushToGiardinieri } = await import("../../lib/push");
+    const { sendPushToGiardinieri } = await import("../../lib/push.js");
     const pushStats = await sendPushToGiardinieri(db, [giardiniereId], {
       title,
       body: message,

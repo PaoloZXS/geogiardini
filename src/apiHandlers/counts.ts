@@ -1,7 +1,7 @@
-import { createDbClient } from './db';
+import { createDbClient } from "./db.js";
 
 function normalizeColumnName(raw: unknown) {
-  return (raw ?? '').toString().trim().toLowerCase();
+  return (raw ?? "").toString().trim().toLowerCase();
 }
 
 function extractTableColumns(rows: any[] | undefined) {
@@ -31,8 +31,11 @@ async function safeAddColumn(db: any, sql: string) {
   try {
     await db.execute(sql, []);
   } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : '';
-    if (message.includes('duplicate column name') || message.includes('already exists')) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (
+      message.includes("duplicate column name") ||
+      message.includes("already exists")
+    ) {
       return;
     }
     throw error;
@@ -41,15 +44,21 @@ async function safeAddColumn(db: any, sql: string) {
 
 async function ensureGiardinieriTable(db: any) {
   await db.execute(
-    'CREATE TABLE IF NOT EXISTS giardinieri (id TEXT PRIMARY KEY, username TEXT NOT NULL, codice TEXT NOT NULL, created_at TEXT NOT NULL, attivo INTEGER NOT NULL DEFAULT 0)',
+    "CREATE TABLE IF NOT EXISTS giardinieri (id TEXT PRIMARY KEY, username TEXT NOT NULL, codice TEXT NOT NULL, created_at TEXT NOT NULL, attivo INTEGER NOT NULL DEFAULT 0)",
     []
   );
 
-  const columnsResult = await db.execute("PRAGMA table_info('giardinieri')", []);
+  const columnsResult = await db.execute(
+    "PRAGMA table_info('giardinieri')",
+    []
+  );
   const columns = extractTableColumns(columnsResult.rows);
 
-  if (!columns.includes('attivo')) {
-    await safeAddColumn(db, 'ALTER TABLE giardinieri ADD COLUMN attivo INTEGER NOT NULL DEFAULT 0');
+  if (!columns.includes("attivo")) {
+    await safeAddColumn(
+      db,
+      "ALTER TABLE giardinieri ADD COLUMN attivo INTEGER NOT NULL DEFAULT 0"
+    );
   }
 }
 
@@ -62,12 +71,18 @@ async function ensureClientiTable(db: any) {
   const columnsResult = await db.execute("PRAGMA table_info('clienti')", []);
   const columns = extractTableColumns(columnsResult.rows);
 
-  if (!columns.includes('codice')) {
-    await safeAddColumn(db, 'ALTER TABLE clienti ADD COLUMN codice TEXT NOT NULL DEFAULT ""');
+  if (!columns.includes("codice")) {
+    await safeAddColumn(
+      db,
+      'ALTER TABLE clienti ADD COLUMN codice TEXT NOT NULL DEFAULT ""'
+    );
   }
 
-  if (!columns.includes('attivo')) {
-    await safeAddColumn(db, 'ALTER TABLE clienti ADD COLUMN attivo INTEGER NOT NULL DEFAULT 1');
+  if (!columns.includes("attivo")) {
+    await safeAddColumn(
+      db,
+      "ALTER TABLE clienti ADD COLUMN attivo INTEGER NOT NULL DEFAULT 1"
+    );
   }
 }
 
@@ -77,7 +92,7 @@ function extractCount(result: any) {
   if (Array.isArray(row)) {
     return Number(row[0] ?? 0);
   }
-  if (typeof row === 'object') {
+  if (typeof row === "object") {
     const firstValue = Object.values(row)[0];
     return Number(firstValue ?? 0);
   }
@@ -85,43 +100,62 @@ function extractCount(result: any) {
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET') {
+  if (req.method !== "GET") {
     res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: false, message: 'Method not allowed.' }));
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ success: false, message: "Method not allowed." }));
     return;
   }
 
   try {
     const db = await createDbClient();
 
-    const activePredicate = "LOWER(TRIM(CAST(attivo AS TEXT))) IN ('1', 'true', 'yes')";
-    const inactivePredicate = "LOWER(TRIM(CAST(attivo AS TEXT))) IN ('0', 'false', 'no')";
+    const activePredicate =
+      "LOWER(TRIM(CAST(attivo AS TEXT))) IN ('1', 'true', 'yes')";
+    const inactivePredicate =
+      "LOWER(TRIM(CAST(attivo AS TEXT))) IN ('0', 'false', 'no')";
 
-    const [giardResult, clientResult, giardActiveResult, giardInactiveResult, activeResult, inactiveResult] = await Promise.all([
-      db.execute('SELECT COUNT(*) FROM giardinieri', []),
-      db.execute('SELECT COUNT(*) FROM clienti', []),
-      db.execute(`SELECT COUNT(*) FROM giardinieri WHERE ${activePredicate}`, []),
-      db.execute(`SELECT COUNT(*) FROM giardinieri WHERE ${inactivePredicate}`, []),
+    const [
+      giardResult,
+      clientResult,
+      giardActiveResult,
+      giardInactiveResult,
+      activeResult,
+      inactiveResult
+    ] = await Promise.all([
+      db.execute("SELECT COUNT(*) FROM giardinieri", []),
+      db.execute("SELECT COUNT(*) FROM clienti", []),
+      db.execute(
+        `SELECT COUNT(*) FROM giardinieri WHERE ${activePredicate}`,
+        []
+      ),
+      db.execute(
+        `SELECT COUNT(*) FROM giardinieri WHERE ${inactivePredicate}`,
+        []
+      ),
       db.execute(`SELECT COUNT(*) FROM clienti WHERE ${activePredicate}`, []),
-      db.execute(`SELECT COUNT(*) FROM clienti WHERE ${inactivePredicate}`, []),
+      db.execute(`SELECT COUNT(*) FROM clienti WHERE ${inactivePredicate}`, [])
     ]);
 
     res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
-      success: true,
-      giardinieriCount: extractCount(giardResult),
-      giardinieriActiveCount: extractCount(giardActiveResult),
-      giardinieriInactiveCount: extractCount(giardInactiveResult),
-      clientiCount: extractCount(clientResult),
-      clientiActiveCount: extractCount(activeResult),
-      clientiInactiveCount: extractCount(inactiveResult),
-    }));
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        success: true,
+        giardinieriCount: extractCount(giardResult),
+        giardinieriActiveCount: extractCount(giardActiveResult),
+        giardinieriInactiveCount: extractCount(giardInactiveResult),
+        clientiCount: extractCount(clientResult),
+        clientiActiveCount: extractCount(activeResult),
+        clientiInactiveCount: extractCount(inactiveResult)
+      })
+    );
   } catch (error: any) {
-    console.error('Counts API error', error);
+    console.error("Counts API error", error);
     res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: false, message: 'Errore interno del server.' }));
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({ success: false, message: "Errore interno del server." })
+    );
   }
 }
