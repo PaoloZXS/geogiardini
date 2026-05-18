@@ -1,4 +1,4 @@
-import appuntamentiHandler from "../src/apiHandlers/appuntamenti";
+import appuntamentiHandler from "../src/apiHandlers/appuntamenti/index";
 import attivitaHandler from "../src/apiHandlers/attivita";
 import clientiHandler from "../src/apiHandlers/clienti";
 import countsHandler from "../src/apiHandlers/counts";
@@ -6,7 +6,7 @@ import dbtestHandler from "../src/apiHandlers/dbtest";
 import giardinieriHandler from "../src/apiHandlers/giardinieri";
 import helloHandler from "../src/apiHandlers/hello";
 import loginHandler from "../src/apiHandlers/login";
-import notificheHandler from "../src/apiHandlers/notifiche";
+import notificheHandler from "../src/apiHandlers/notifiche/index";
 import notificheReadHandler from "../src/apiHandlers/notifiche/[id]/read";
 import pushPublicKeyHandler from "../src/apiHandlers/push-public-key";
 import pushSubscriptionHandler from "../src/apiHandlers/push-subscription";
