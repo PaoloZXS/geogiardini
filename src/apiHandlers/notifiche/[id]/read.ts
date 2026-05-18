@@ -1,4 +1,4 @@
-import { createDbClient } from "../../db";
+import { createDbClient } from "../../db.js";
 
 async function ensureNotificheTable(db: any) {
   await db.execute(

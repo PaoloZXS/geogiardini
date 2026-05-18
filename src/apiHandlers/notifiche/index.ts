@@ -1,4 +1,4 @@
-import { createDbClient } from "../db";
+import { createDbClient } from "../db.js";
 
 function normalizeColumnName(raw: unknown) {
   return (raw ?? "").toString().trim().toLowerCase();
@@ -217,7 +217,7 @@ export default async function handler(req: any, res: any) {
     };
 
     try {
-      const { sendPushToGiardinieri } = await import("../../../lib/push");
+      const { sendPushToGiardinieri } = await import("../../../lib/push.js");
       pushStats = await sendPushToGiardinieri(db, recipients, {
         title: trimmedTitle,
         body: trimmedMessage,
