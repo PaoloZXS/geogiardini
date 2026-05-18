@@ -603,6 +603,7 @@ async function startServer() {
     try {
       console.log("Sending push notification to", (subscription as any)?.endpoint);
       await webpush.sendNotification(subscription as any, JSON.stringify(payload));
+      return 0;
     } catch (error: any) {
       const statusCode = error?.statusCode;
       const endpoint = (subscription as any)?.endpoint;
@@ -612,12 +613,21 @@ async function startServer() {
           await cleanupStaleSubscription(endpoint);
         }
       }
+      return Number(statusCode || 500);
     }
   }
 
   async function sendPushNotifications(giardiniereIds: string[], payload: unknown) {
+    const stats = {
+      targetedRecipients: giardiniereIds.length,
+      subscriptionCount: 0,
+      acceptedCount: 0,
+      failedCount: 0,
+      removedCount: 0
+    };
+
     if (giardiniereIds.length === 0) {
-      return;
+      return stats;
     }
 
     await ensurePushSubscriptionsTable();
@@ -629,6 +639,7 @@ async function startServer() {
     const subscriptionRows = Array.isArray(subscriptionsResult.rows)
       ? subscriptionsResult.rows
       : [];
+    stats.subscriptionCount = subscriptionRows.length;
 
     for (const row of subscriptionRows) {
       const endpoint = row?.endpoint?.toString()?.trim();
@@ -638,7 +649,7 @@ async function startServer() {
         continue;
       }
 
-      await sendPushNotificationToSubscription(
+      const statusCode = await sendPushNotificationToSubscription(
         {
           endpoint,
           keys: {
@@ -648,7 +659,17 @@ async function startServer() {
         },
         payload
       );
+      if (!statusCode) {
+        stats.acceptedCount += 1;
+      } else {
+        stats.failedCount += 1;
+        if (statusCode === 404 || statusCode === 410) {
+          stats.removedCount += 1;
+        }
+      }
     }
+
+    return stats;
   }
 
   app.post("/api/appuntamenti", async (req, res) => {
@@ -1080,7 +1101,7 @@ async function startServer() {
         );
       }
 
-      await sendPushNotifications(recipients, {
+      const pushStats = await sendPushNotifications(recipients, {
         title: trimmedTitle,
         body: trimmedMessage,
         data: {
@@ -1090,7 +1111,7 @@ async function startServer() {
         }
       });
 
-      return res.json({ success: true });
+      return res.json({ success: true, recipientsCount: recipients.length, pushStats });
     } catch (error) {
       console.error("Creating notifiche failed", error);
       return res.status(500).json({

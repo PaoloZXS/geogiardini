@@ -633,8 +633,17 @@ function AdminPage() {
         throw new Error(message);
       }
 
+      const recipientsCount = Number(result?.recipientsCount ?? 0);
+      const pushStats = result?.pushStats;
+      const acceptedCount = Number(pushStats?.acceptedCount ?? 0);
+      const subscriptionCount = Number(pushStats?.subscriptionCount ?? 0);
+
       setStatusType("success");
-      setStatusMessage("Messaggio inviato correttamente.");
+      setStatusMessage(
+        subscriptionCount > 0
+          ? `Avviso inviato a ${recipientsCount} giardiniere/i. Consegna push accettata per ${acceptedCount} dispositivo/i su ${subscriptionCount} registrato/i.`
+          : `Avviso salvato per ${recipientsCount} giardiniere/i, ma nessun dispositivo push risulta registrato.`
+      );
       clearStatusAfterDelay();
       clearAvvisoForm();
       await fetchAvvisi();

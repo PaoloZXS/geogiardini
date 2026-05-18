@@ -10,6 +10,14 @@ type PushSubscriptionRecord = {
   auth: string;
 };
 
+export type PushDeliveryStats = {
+  targetedRecipients: number;
+  subscriptionCount: number;
+  acceptedCount: number;
+  failedCount: number;
+  removedCount: number;
+};
+
 let isConfigured = false;
 let webpushInstance: any = null;
 
@@ -81,7 +89,15 @@ export async function sendPushToGiardinieri(
   giardinieriIds: string[],
   payload: PushPayload
 ) {
-  if (!giardinieriIds.length) return;
+  const stats: PushDeliveryStats = {
+    targetedRecipients: giardinieriIds.length,
+    subscriptionCount: 0,
+    acceptedCount: 0,
+    failedCount: 0,
+    removedCount: 0
+  };
+
+  if (!giardinieriIds.length) return stats;
 
   await ensureConfigured();
   const webpush = await getWebpush();
@@ -94,6 +110,7 @@ export async function sendPushToGiardinieri(
   );
 
   const rows = (Array.isArray(result.rows) ? result.rows : []) as any[];
+  stats.subscriptionCount = rows.length;
   for (const row of rows) {
     const endpoint = row?.endpoint?.toString?.() ?? '';
     const p256dh = row?.p256dh?.toString?.() ?? '';
@@ -110,12 +127,17 @@ export async function sendPushToGiardinieri(
         },
         JSON.stringify(payload)
       );
+      stats.acceptedCount += 1;
     } catch (error: any) {
+      stats.failedCount += 1;
       const statusCode = Number(error?.statusCode ?? 0);
       if (statusCode === 404 || statusCode === 410) {
         await db.execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+        stats.removedCount += 1;
       }
       console.error('Push send failed for endpoint', endpoint, error);
     }
   }
+
+  return stats;
 }

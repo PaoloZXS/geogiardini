@@ -176,9 +176,17 @@ export default async function handler(req: any, res: any) {
       );
     }
 
+    let pushStats = {
+      targetedRecipients: recipients.length,
+      subscriptionCount: 0,
+      acceptedCount: 0,
+      failedCount: 0,
+      removedCount: 0
+    };
+
     try {
       const { sendPushToGiardinieri } = await import('../../lib/push');
-      await sendPushToGiardinieri(db, recipients, {
+      pushStats = await sendPushToGiardinieri(db, recipients, {
         title: trimmedTitle,
         body: trimmedMessage,
         data: {
@@ -195,7 +203,7 @@ export default async function handler(req: any, res: any) {
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: true }));
+    res.end(JSON.stringify({ success: true, recipientsCount: recipients.length, pushStats }));
   } catch (error: any) {
     console.error('Notifiche API error', error);
     res.statusCode = 500;
