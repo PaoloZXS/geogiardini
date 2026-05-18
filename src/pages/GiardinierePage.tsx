@@ -129,7 +129,16 @@ function GiardinierePage() {
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register("/sw.js");
+      }
+      if (!registration) {
+        throw new Error(
+          "Unable to register service worker for push notifications."
+        );
+      }
+
       let subscription = await registration.pushManager.getSubscription();
 
       const publicKeyResponse = await fetch("/api/push-public-key");

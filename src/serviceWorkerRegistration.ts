@@ -34,7 +34,7 @@ export function registerServiceWorker() {
     return;
   }
 
-  window.addEventListener("load", async () => {
+  const registerWorker = async () => {
     try {
       const registration = await navigator.serviceWorker.register("/sw.js");
       console.log(
@@ -72,7 +72,15 @@ export function registerServiceWorker() {
     } catch (error) {
       console.warn("Service Worker non registrato:", error);
     }
-  });
+  };
+
+  if (document.readyState === "complete") {
+    void registerWorker();
+  } else {
+    window.addEventListener("load", () => {
+      void registerWorker();
+    });
+  }
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     sessionStorage.removeItem("swReloaded");
