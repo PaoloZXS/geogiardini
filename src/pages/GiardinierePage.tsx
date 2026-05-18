@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const urlBase64ToUint8Array = (base64String: string) => {
@@ -42,6 +42,7 @@ function GiardinierePage() {
   const [pushError, setPushError] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
+  const previousUnreadIdsRef = useRef<Set<string>>(new Set());
 
   const registerPushSubscription = async (userId: string) => {
     setPushError(null);
@@ -198,6 +199,18 @@ function GiardinierePage() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
+
+    const intervalId = window.setInterval(() => {
+      setRefreshKey((current) => current + 1);
+    }, 10000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [userId]);
+
+  useEffect(() => {
     if (!userId || typeof window === 'undefined') return;
 
     const refreshPushSubscription = () => {
@@ -269,7 +282,42 @@ function GiardinierePage() {
           throw new Error(appointmentsData?.message || 'Errore caricamento appuntamenti.');
         }
 
-        setNotifications(Array.isArray(notificheData?.notifiche) ? notificheData.notifiche : []);
+        const nextNotifications = Array.isArray(notificheData?.notifiche)
+          ? notificheData.notifiche
+          : [];
+
+        const nextUnreadIds = new Set<string>(
+          nextNotifications
+            .filter((item: NotificationItem) => Number(item?.read) === 0)
+            .map((item: NotificationItem) => item?.id)
+            .filter((id: string): id is string => Boolean(id))
+        );
+
+        if (previousUnreadIdsRef.current.size > 0) {
+          const newlyArrived = nextNotifications.filter(
+            (item: NotificationItem) =>
+              Number(item?.read) === 0 &&
+              item?.id &&
+              !previousUnreadIdsRef.current.has(item.id)
+          );
+
+          if (newlyArrived.length > 0 && typeof window !== 'undefined' && 'Notification' in window) {
+            const first = newlyArrived[0];
+            if (Notification.permission === 'granted') {
+              try {
+                new Notification(first.title || 'Nuovo avviso', {
+                  body: first.message || '',
+                  icon: '/leaf-512.png'
+                });
+              } catch (notificationError) {
+                console.error('Browser notification failed', notificationError);
+              }
+            }
+          }
+        }
+
+        previousUnreadIdsRef.current = nextUnreadIds;
+        setNotifications(nextNotifications);
         setAppointments(Array.isArray(appointmentsData?.appointments) ? appointmentsData.appointments : []);
       } catch (err) {
         console.error(err);
