@@ -42,7 +42,20 @@ function GiardinierePage() {
   const [pushError, setPushError] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
+  const [inAppPopup, setInAppPopup] = useState<{ title: string; body: string } | null>(null);
   const previousUnreadIdsRef = useRef<Set<string>>(new Set());
+  const popupTimeoutRef = useRef<number | null>(null);
+
+  const showInAppPopup = (title: string, body: string) => {
+    setInAppPopup({ title, body });
+    if (popupTimeoutRef.current) {
+      window.clearTimeout(popupTimeoutRef.current);
+    }
+    popupTimeoutRef.current = window.setTimeout(() => {
+      setInAppPopup(null);
+      popupTimeoutRef.current = null;
+    }, 5000);
+  };
 
   const registerPushSubscription = async (userId: string) => {
     setPushError(null);
@@ -233,6 +246,14 @@ function GiardinierePage() {
   }, [userId]);
 
   useEffect(() => {
+    return () => {
+      if (popupTimeoutRef.current) {
+        window.clearTimeout(popupTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!userId) return;
 
     const handleStorageChange = () => {
@@ -303,6 +324,7 @@ function GiardinierePage() {
 
           if (newlyArrived.length > 0 && typeof window !== 'undefined' && 'Notification' in window) {
             const first = newlyArrived[0];
+            showInAppPopup(first.title || 'Nuovo avviso', first.message || 'Hai ricevuto un nuovo avviso.');
             if (Notification.permission === 'granted') {
               try {
                 new Notification(first.title || 'Nuovo avviso', {
@@ -425,6 +447,23 @@ function GiardinierePage() {
 
   return (
     <div className="bg-background text-on-surface min-h-screen p-6">
+      {inAppPopup ? (
+        <div className="fixed bottom-6 right-6 z-[1200] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-primary/40 bg-surface shadow-2xl p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-on-surface">{inAppPopup.title}</p>
+              <p className="mt-1 text-sm text-on-surface-variant whitespace-pre-line">{inAppPopup.body}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInAppPopup(null)}
+              className="rounded-full border border-outline-variant bg-surface px-2 py-1 text-xs font-semibold text-on-surface hover:bg-surface-container-high"
+            >
+              Chiudi
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
