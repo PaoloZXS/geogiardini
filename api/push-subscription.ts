@@ -10,7 +10,12 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { giardiniereId, subscription } = req.body ?? {};
+    const parsedBody =
+      typeof req.body === 'string'
+        ? JSON.parse(req.body || '{}')
+        : req.body ?? {};
+
+    const { giardiniereId, subscription } = parsedBody;
     const normalizedGiardiniereId = giardiniereId?.toString().trim();
     const endpoint = subscription?.endpoint?.toString().trim();
     const p256dh = subscription?.keys?.p256dh?.toString().trim();
@@ -53,12 +58,16 @@ export default async function handler(req: any, res: any) {
     res.end(JSON.stringify({ success: true }));
   } catch (error) {
     console.error('Saving push subscription failed', error);
+    const details =
+      error instanceof Error && error.message
+        ? error.message
+        : 'Errore sconosciuto durante registrazione push.';
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
         success: false,
-        message: 'Errore durante il salvataggio della sottoscrizione push.'
+        message: `Errore durante il salvataggio della sottoscrizione push. Dettaglio: ${details}`
       })
     );
   }
