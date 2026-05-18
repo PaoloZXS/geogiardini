@@ -1,8 +1,17 @@
-import { createClient } from '@libsql/client';
+import { createClient } from "@libsql/client";
+
+const databaseUrl = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+
+if (!databaseUrl || !authToken) {
+  throw new Error(
+    "TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set in environment variables"
+  );
+}
 
 const db = createClient({
-  url: 'libsql://geogiardini-paolozxs.aws-eu-west-1.turso.io',
-  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzgwODIzMzgsImlkIjoiMDE5ZGZkOGItZWEwMS03NGI2LTkzNTUtZDgxNjI4YjEzMDlkIiwicmlkIjoiZjFjYTE4ZDktOTMxOS00MmFkLTg4NTEtNDFiODVlMTEzOTNiIn0.ZwsaKrGcqLR_THEJ9OUGCE8pOK8mRs7P8fuOhodrsDwIPrff5UVKA2oR6ePLNxRm0cpcmQmaIS1eSV7T0D16CA',
+  url: databaseUrl,
+  authToken
 });
 
 const main = async () => {
@@ -10,13 +19,16 @@ const main = async () => {
   const columns = Array.isArray(info.rows)
     ? info.rows.map((row) => row[1] || row.name)
     : [];
-  console.log('Current clienti columns:', columns);
-  if (!columns.includes('codice')) {
-    console.log('Adding codice column to clienti...');
-    await db.execute('ALTER TABLE clienti ADD COLUMN codice TEXT NOT NULL DEFAULT ""', []);
-    console.log('Column added successfully.');
+  console.log("Current clienti columns:", columns);
+  if (!columns.includes("codice")) {
+    console.log("Adding codice column to clienti...");
+    await db.execute(
+      'ALTER TABLE clienti ADD COLUMN codice TEXT NOT NULL DEFAULT ""',
+      []
+    );
+    console.log("Column added successfully.");
   } else {
-    console.log('Column codice already exists.');
+    console.log("Column codice already exists.");
   }
 };
 

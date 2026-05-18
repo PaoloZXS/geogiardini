@@ -6,9 +6,10 @@ import bodyParser from "body-parser";
 import webpush from "web-push";
 import { createClient } from "@libsql/client";
 
-const databaseUrl = "libsql://geogiardini-paolozxs.aws-eu-west-1.turso.io";
-const authToken =
-  "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzgwODIzMzgsImlkIjoiMDE5ZGZkOGItZWEwMS03NGI2LTkzNTUtZDgxNjI4YjEzMDlkIiwicmlkIjoiZjFjYTE4ZDktOTMxOS00MmFkLTg4NTEtNDFiODVlMTEzOTNiIn0.ZwsaKrGcqLR_THEJ9OUGCE8pOK8mRs7P8fuOhodrsDwIPrff5UVKA2oR6ePLNxRm0cpcmQmaIS1eSV7T0D16CA";
+const databaseUrl = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+const adminUsername = process.env.ADMIN_USERNAME;
+const adminCode = process.env.ADMIN_CODE;
 
 const vapidKeysFile = path.resolve("vapid-keys.json");
 let vapidKeys = {
@@ -52,6 +53,12 @@ webpush.setVapidDetails(
 );
 
 async function startServer() {
+  if (!databaseUrl || !authToken) {
+    throw new Error(
+      "TURSO_DATABASE_URL e TURSO_AUTH_TOKEN devono essere configurati nelle variabili ambiente."
+    );
+  }
+
   const db = createClient({
     url: databaseUrl,
     authToken
@@ -78,10 +85,18 @@ async function startServer() {
       }
 
       if (role === "admin") {
-        if (username === "Angelo" && code === "A2026") {
+        if (!adminUsername || !adminCode) {
+          return res.status(500).json({
+            success: false,
+            message:
+              "Credenziali admin non configurate sul server (ADMIN_USERNAME/ADMIN_CODE)."
+          });
+        }
+
+        if (username === adminUsername && code === adminCode) {
           return res
             .status(200)
-            .json({ success: true, role: "admin", username });
+            .json({ success: true, role: "admin", username, id: "admin" });
         }
         return res
           .status(401)
@@ -590,7 +605,9 @@ async function startServer() {
 
   async function cleanupStaleSubscription(endpoint: string) {
     try {
-      await db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", [endpoint]);
+      await db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", [
+        endpoint
+      ]);
     } catch (error) {
       console.error("Failed to cleanup stale push subscription", error);
     }
@@ -601,13 +618,24 @@ async function startServer() {
     payload: unknown
   ) {
     try {
-      console.log("Sending push notification to", (subscription as any)?.endpoint);
-      await webpush.sendNotification(subscription as any, JSON.stringify(payload));
+      console.log(
+        "Sending push notification to",
+        (subscription as any)?.endpoint
+      );
+      await webpush.sendNotification(
+        subscription as any,
+        JSON.stringify(payload)
+      );
       return 0;
     } catch (error: any) {
       const statusCode = error?.statusCode;
       const endpoint = (subscription as any)?.endpoint;
-      console.error("Error sending push notification:", statusCode, endpoint, error?.body || error?.message || error);
+      console.error(
+        "Error sending push notification:",
+        statusCode,
+        endpoint,
+        error?.body || error?.message || error
+      );
       if (statusCode === 410 || statusCode === 404) {
         if (endpoint) {
           await cleanupStaleSubscription(endpoint);
@@ -617,7 +645,10 @@ async function startServer() {
     }
   }
 
-  async function sendPushNotifications(giardiniereIds: string[], payload: unknown) {
+  async function sendPushNotifications(
+    giardiniereIds: string[],
+    payload: unknown
+  ) {
     const stats = {
       targetedRecipients: giardiniereIds.length,
       subscriptionCount: 0,
@@ -954,18 +985,12 @@ async function startServer() {
       const now = new Date().toISOString();
       await db.execute(
         "INSERT INTO push_subscriptions (id, giardiniere_id, endpoint, p256dh, auth, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET giardiniere_id = excluded.giardiniere_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at",
-        [
-          crypto.randomUUID(),
-          giardiniereId,
-          endpoint,
-          p256dh,
-          auth,
-          now,
-          now
-        ]
+        [crypto.randomUUID(), giardiniereId, endpoint, p256dh, auth, now, now]
       );
 
-      console.log(`Push subscription saved for giardiniere ${giardiniereId} (${endpoint})`);
+      console.log(
+        `Push subscription saved for giardiniere ${giardiniereId} (${endpoint})`
+      );
       return res.json({ success: true });
     } catch (error) {
       console.error("Saving push subscription failed", error);
@@ -1111,7 +1136,11 @@ async function startServer() {
         }
       });
 
-      return res.json({ success: true, recipientsCount: recipients.length, pushStats });
+      return res.json({
+        success: true,
+        recipientsCount: recipients.length,
+        pushStats
+      });
     } catch (error) {
       console.error("Creating notifiche failed", error);
       return res.status(500).json({

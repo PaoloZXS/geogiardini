@@ -10,7 +10,10 @@ const normalizeName = (value: string) =>
   value
     .trim()
     .toLowerCase()
-    .replace(/(^|\s)(\S)/g, (_, separator, char) => `${separator}${char.toUpperCase()}`);
+    .replace(
+      /(^|\s)(\S)/g,
+      (_, separator, char) => `${separator}${char.toUpperCase()}`
+    );
 
 type UserRole = "admin" | "cliente" | "giardiniere";
 
@@ -163,16 +166,6 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (loginRole === "admin") {
-      if (username === "Angelo" && password === "A2026") {
-        onLoginSuccess("admin");
-        navigate("/admin");
-        return;
-      }
-      setError("Credenziali admin errate. Riprovare");
-      return;
-    }
-
     if (!username.trim() || !password.trim()) {
       setError("Inserisci nome e codice.");
       return;
@@ -195,7 +188,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
         return;
       }
 
-      if (!result.id) {
+      if (loginRole !== "admin" && !result.id) {
         setError("Login riuscito ma id utente mancante. Riprova.");
         return;
       }
@@ -212,7 +205,9 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
       }
 
       onLoginSuccess(loginRole);
-      if (loginRole === "cliente") {
+      if (loginRole === "admin") {
+        navigate("/admin");
+      } else if (loginRole === "cliente") {
         navigate("/cliente");
       } else {
         navigate("/giardiniere");

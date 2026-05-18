@@ -1,6 +1,13 @@
 import { createDbClient } from "./db.js";
 
 export default async function handler(req: any, res: any) {
+  if (process.env.NODE_ENV === "production") {
+    res.statusCode = 404;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ success: false, message: "Not found." }));
+    return;
+  }
+
   if (req.method !== "GET") {
     res.statusCode = 405;
     res.setHeader("Content-Type", "application/json");

@@ -81,6 +81,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const db = await createDbClient();
+    await ensureAttivitaTable(db);
     const id =
       req.query?.id?.toString?.().trim() || req.params?.id?.toString?.().trim();
 
@@ -146,7 +147,6 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    await ensureAttivitaTable(db);
     await db.execute(
       "INSERT INTO attivita (id, description, completed, created_at) VALUES (?, ?, ?, ?)",
       [crypto.randomUUID(), trimmedDescription, 0, new Date().toISOString()]

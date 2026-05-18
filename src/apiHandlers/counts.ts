@@ -109,6 +109,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const db = await createDbClient();
+    await Promise.all([ensureGiardinieriTable(db), ensureClientiTable(db)]);
 
     const activePredicate =
       "LOWER(TRIM(CAST(attivo AS TEXT))) IN ('1', 'true', 'yes')";

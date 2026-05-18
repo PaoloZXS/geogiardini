@@ -811,6 +811,13 @@ function AdminPage() {
 
   const handleLogout = () => {
     handleCloseForm();
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("userId");
+      window.localStorage.removeItem("loginUsername");
+      window.localStorage.removeItem("loginRole");
+      window.location.replace("/#/geologin");
+      return;
+    }
     navigate("/geologin", { replace: true });
   };
 

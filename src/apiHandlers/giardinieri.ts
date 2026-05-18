@@ -66,6 +66,7 @@ export default async function handler(req: any, res: any) {
   if (
     req.method !== "GET" &&
     req.method !== "POST" &&
+    req.method !== "PUT" &&
     req.method !== "DELETE"
   ) {
     res.statusCode = 405;
@@ -76,6 +77,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const db = await createDbClient();
+    await ensureGiardinieriTable(db);
     const id =
       req.query?.id?.toString?.().trim() || req.params?.id?.toString?.().trim();
 
@@ -92,6 +94,64 @@ export default async function handler(req: any, res: any) {
         return;
       }
       await db.execute("DELETE FROM giardinieri WHERE id = ?", [id]);
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
+
+    if (req.method === "PUT") {
+      if (!id) {
+        res.statusCode = 400;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: "Id giardiniere mancante."
+          })
+        );
+        return;
+      }
+
+      const { username, codice, attivo } = req.body ?? {};
+      const trimmedUsername = username?.toString().trim();
+      const trimmedCodice = codice?.toString().trim();
+      const isActive = attivo ? 1 : 0;
+
+      if (!trimmedUsername || !trimmedCodice) {
+        res.statusCode = 400;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: "Username e codice sono obbligatori."
+          })
+        );
+        return;
+      }
+
+      const existing = await db.execute(
+        "SELECT id FROM giardinieri WHERE LOWER(username) = LOWER(?) AND id != ? LIMIT 1",
+        [trimmedUsername, id]
+      );
+
+      if (existing.rows.length > 0) {
+        res.statusCode = 409;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: "Username già presente. Usa un altro username."
+          })
+        );
+        return;
+      }
+
+      await db.execute(
+        "UPDATE giardinieri SET username = ?, codice = ?, attivo = ? WHERE id = ?",
+        [trimmedUsername, trimmedCodice, isActive, id]
+      );
+
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ success: true }));
@@ -128,7 +188,6 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    await ensureGiardinieriTable(db);
     const existing = await db.execute(
       "SELECT id FROM giardinieri WHERE LOWER(username) = LOWER(?) LIMIT 1",
       [trimmedUsername]

@@ -36,10 +36,25 @@ export default async function handler(req: any, res: any) {
     }
 
     if (role === "admin") {
-      if (username === "Angelo" && code === "A2026") {
+      const adminUsername = process.env.ADMIN_USERNAME?.toString().trim();
+      const adminCode = process.env.ADMIN_CODE?.toString().trim();
+
+      if (!adminUsername || !adminCode) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: "Credenziali admin non configurate su server."
+          })
+        );
+        return;
+      }
+
+      if (username === adminUsername && code === adminCode) {
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ success: true, role, username }));
+        res.end(JSON.stringify({ success: true, role, username, id: "admin" }));
         return;
       }
       res.statusCode = 401;
