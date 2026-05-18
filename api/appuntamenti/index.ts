@@ -355,25 +355,31 @@ export default async function handler(req: any, res: any) {
     };
 
     try {
-      const { sendPushToGiardinieri } = await import('../../lib/push');
+      const { sendPushToGiardinieri } = await import("../../lib/push");
       pushStats = await sendPushToGiardinieri(db, selectedGiardinieri, {
         title: notificationTitle,
         body: notificationMessage,
         data: {
-          url: '/giardiniere',
-          type: 'appuntamento',
+          url: "/giardiniere",
+          type: "appuntamento",
           clienteId: trimmedClienteId,
           appointmentId,
           createdAt: new Date().toISOString()
         }
       });
     } catch (pushError) {
-      console.error('Push send in appuntamenti API failed', pushError);
+      console.error("Push send in appuntamenti API failed", pushError);
     }
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ success: true, recipientsCount: selectedGiardinieri.length, pushStats }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        recipientsCount: selectedGiardinieri.length,
+        pushStats
+      })
+    );
   } catch (error: any) {
     const errorMessage =
       error && typeof error === "object" && "message" in error

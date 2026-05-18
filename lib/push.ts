@@ -10,7 +10,10 @@ type PushSubscriptionRecord = {
   auth: string;
 };
 
-export type PushDeliveryStats = {
+export import fs from 'fs';
+import path from 'path';
+
+type PushDeliveryStats = {
   targetedRecipients: number;
   subscriptionCount: number;
   acceptedCount: number;
@@ -34,6 +37,25 @@ async function getWebpush() {
 function getVapidKeys() {
   const publicKey = process.env.VAPID_PUBLIC_KEY?.toString().trim() ?? '';
   const privateKey = process.env.VAPID_PRIVATE_KEY?.toString().trim() ?? '';
+  if (publicKey && privateKey) {
+    return { publicKey, privateKey };
+  }
+
+  try {
+    const vapidFilePath = path.resolve(process.cwd(), 'vapid-keys.json');
+    if (fs.existsSync(vapidFilePath)) {
+      const fileContent = fs.readFileSync(vapidFilePath, 'utf8');
+      const vapidData = JSON.parse(fileContent);
+      const filePublicKey = vapidData?.publicKey?.toString()?.trim() ?? '';
+      const filePrivateKey = vapidData?.privateKey?.toString()?.trim() ?? '';
+      if (filePublicKey && filePrivateKey) {
+        return { publicKey: filePublicKey, privateKey: filePrivateKey };
+      }
+    }
+  } catch (error) {
+    console.warn('Impossibile leggere vapid-keys.json per le chiavi VAPID:', error);
+  }
+
   return { publicKey, privateKey };
 }
 
@@ -44,7 +66,7 @@ async function ensureConfigured() {
 
   const { publicKey, privateKey } = getVapidKeys();
   if (!publicKey || !privateKey) {
-    throw new Error('VAPID keys are not configured on server environment variables.');
+    throw new Error('VAPID keys are not configured on server environment variables or vapid-keys.json is missing.');
   }
 
   const webpush = await getWebpush();
