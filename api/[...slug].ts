@@ -12,12 +12,19 @@ import pushSubscriptionHandler from "../src/apiHandlers/push-subscription";
 import pushTestHandler from "../src/apiHandlers/push-test";
 
 export default async function handler(req: any, res: any) {
-  const slug = req.query?.slug;
-  const pathSegments = Array.isArray(slug)
+  let slug = req.query?.slug;
+  let pathSegments = Array.isArray(slug)
     ? slug
     : typeof slug === "string"
       ? [slug]
       : [];
+
+  if (pathSegments.length === 0 && typeof req.url === "string") {
+    const match = req.url.match(/^\/api\/(.*?)(?:\?|#|$)/);
+    if (match?.[1]) {
+      pathSegments = match[1].split("/").filter(Boolean);
+    }
+  }
 
   const route = pathSegments.join("/");
 
