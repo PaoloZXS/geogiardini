@@ -1,14 +1,4 @@
-async function createDbClient() {
-  const databaseUrl = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-
-  if (!databaseUrl || !authToken) {
-    throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set in environment variables');
-  }
-
-  const { createClient } = await import('@libsql/client');
-  return createClient({ url: databaseUrl, authToken });
-}
+import { createDbClient } from '../../db';
 
 async function ensureNotificheTable(db: any) {
   await db.execute(

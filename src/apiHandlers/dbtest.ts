@@ -1,13 +1,4 @@
-const databaseUrl = process.env.TURSO_DATABASE_URL;
-const authToken = process.env.TURSO_AUTH_TOKEN;
-
-async function createDbClient() {
-  if (!databaseUrl || !authToken) {
-    throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set in environment variables');
-  }
-  const { createClient } = await import('@libsql/client');
-  return createClient({ url: databaseUrl, authToken });
-}
+import { createDbClient } from './db';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
