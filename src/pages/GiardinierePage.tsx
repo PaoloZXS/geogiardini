@@ -45,6 +45,9 @@ function GiardinierePage() {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>("default");
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
+  const [subscriptionEndpoint, setSubscriptionEndpoint] = useState<string | null>(null);
+  const [pushTestMessage, setPushTestMessage] = useState<string | null>(null);
+  const [isTestPushSending, setIsTestPushSending] = useState(false);
   const [inAppPopup, setInAppPopup] = useState<{
     title: string;
     body: string;
@@ -138,6 +141,9 @@ function GiardinierePage() {
       }
 
       let subscription = await registration.pushManager.getSubscription();
+      if (subscription?.endpoint) {
+        setSubscriptionEndpoint(subscription.endpoint.toString());
+      }
 
       const publicKeyResponse = await fetch("/api/push-public-key");
       const publicKeyData = await publicKeyResponse.json().catch(() => null);
@@ -230,15 +236,55 @@ function GiardinierePage() {
 
       setPushStatus("subscribed");
       setPushError(null);
+      const endpoint = (subscription as any)?.endpoint?.toString?.() ?? null;
+      setSubscriptionEndpoint(endpoint);
       window.localStorage.setItem("pushVapidPublicKey", serverPublicKey);
       setServiceWorkerControlled(!!navigator.serviceWorker.controller);
     } catch (error) {
       console.error("Push registration failed", error);
-      setPushError(
-        error instanceof Error ? error.message : "Registrazione push fallita."
-      );
+      console.error("Push registration failed", error);
+      setPushError(error instanceof Error ? error.message : "Registrazione push fallita.");
       setPushStatus("denied");
       setServiceWorkerControlled(!!navigator.serviceWorker.controller);
+    }
+  };
+
+  const sendPushTest = async () => {
+    if (!userId) {
+      return;
+    }
+    setPushTestMessage(null);
+    setIsTestPushSending(true);
+    try {
+      const response = await fetch("/api/push-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          giardiniereId: userId,
+          title: "Test notifiche push",
+          message:
+            "Questa è una notifica di prova inviata direttamente al tuo dispositivo.",
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.message || `Test push fallito: ${response.status}`
+        );
+      }
+      setPushTestMessage(
+        "Test push inviato. Se il browser supporta il background push, riceverai una notifica anche con l'app chiusa."
+      );
+    } catch (error) {
+      setPushTestMessage(
+        error instanceof Error
+          ? error.message
+          : "Errore invio test push."
+      );
+    } finally {
+      setIsTestPushSending(false);
+    }
+  };
     }
   };
 
@@ -399,10 +445,13 @@ function GiardinierePage() {
               try {
                 const registration = await navigator.serviceWorker.ready;
                 if (registration) {
-                  await registration.showNotification(first.title || "Nuovo avviso", {
-                    body: first.message || "",
-                    icon: "/leaf-512.png"
-                  });
+                  await registration.showNotification(
+                    first.title || "Nuovo avviso",
+                    {
+                      body: first.message || "",
+                      icon: "/leaf-512.png"
+                    }
+                  );
                 } else {
                   new Notification(first.title || "Nuovo avviso", {
                     body: first.message || "",
@@ -622,6 +671,27 @@ function GiardinierePage() {
                 {pushStatus === "unknown" &&
                   "Le notifiche push saranno attivate automaticamente."}
               </p>
+              {subscriptionEndpoint ? (
+                <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-on-surface-variant">
+                  <strong>Endpoint sottoscrizione:</strong>
+                  <div className="truncate break-all">{subscriptionEndpoint}</div>
+                </div>
+              ) : null}
+              {pushStatus === "subscribed" ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={sendPushTest}
+                    disabled={isTestPushSending}
+                  >
+                    {isTestPushSending ? "Invio test..." : "Invia test push"}
+                  </button>
+                  {pushTestMessage ? (
+                    <p className="text-sm text-on-surface-variant">{pushTestMessage}</p>
+                  ) : null}
+                </div>
+              ) : null}
               {pushError ? (
                 <div className="mt-3 rounded-xl border border-error/40 bg-error/10 p-3 text-sm text-error">
                   <strong>Errore push:</strong> {pushError}
