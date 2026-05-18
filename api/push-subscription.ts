@@ -1,5 +1,3 @@
-import { ensurePushSubscriptionsTable, savePushSubscription } from '../lib/push';
-
 async function createDbClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
@@ -10,6 +8,33 @@ async function createDbClient() {
 
   const { createClient } = await import('@libsql/client');
   return createClient({ url: databaseUrl, authToken });
+}
+
+async function ensurePushSubscriptionsTable(db: any) {
+  await db.execute(
+    'CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, giardiniere_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    []
+  );
+}
+
+async function savePushSubscription(
+  db: any,
+  giardiniereId: string,
+  subscription: { endpoint: string; p256dh: string; auth: string }
+) {
+  const now = new Date().toISOString();
+  await db.execute(
+    'INSERT INTO push_subscriptions (id, giardiniere_id, endpoint, p256dh, auth, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET giardiniere_id = excluded.giardiniere_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at',
+    [
+      crypto.randomUUID(),
+      giardiniereId,
+      subscription.endpoint,
+      subscription.p256dh,
+      subscription.auth,
+      now,
+      now
+    ]
+  );
 }
 
 export default async function handler(req: any, res: any) {
