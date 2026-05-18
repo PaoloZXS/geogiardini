@@ -209,12 +209,17 @@ function GiardinierePage() {
         });
       }
 
+      const subscriptionPayload =
+        typeof subscription?.toJSON === "function"
+          ? subscription.toJSON()
+          : subscription;
+
       const response = await fetch("/api/push-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           giardiniereId: userId,
-          subscription
+          subscription: subscriptionPayload
         })
       });
 
