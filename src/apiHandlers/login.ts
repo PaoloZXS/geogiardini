@@ -1,4 +1,4 @@
-import { createDbClient } from "./db.js";
+import { createDbClient } from "./db";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {

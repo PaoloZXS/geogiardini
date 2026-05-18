@@ -1,4 +1,4 @@
-import { createDbClient } from "./db.js";
+import { createDbClient } from "./db";
 
 async function ensurePushSubscriptionsTable(db: any) {
   await db.execute(
