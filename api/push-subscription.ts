@@ -1,5 +1,16 @@
-import { createDbClient, ensureGiardinieriTable } from '../lib/db';
 import { ensurePushSubscriptionsTable, savePushSubscription } from '../lib/push';
+
+async function createDbClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (!databaseUrl || !authToken) {
+    throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set in environment variables');
+  }
+
+  const { createClient } = await import('@libsql/client');
+  return createClient({ url: databaseUrl, authToken });
+}
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -28,24 +39,8 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    const db = createDbClient();
-    await ensureGiardinieriTable(db);
+    const db = await createDbClient();
     await ensurePushSubscriptionsTable(db);
-
-    const giardiniereResult = await db.execute(
-      'SELECT id FROM giardinieri WHERE id = ? LIMIT 1',
-      [normalizedGiardiniereId]
-    );
-    const giardiniereRows = Array.isArray(giardiniereResult.rows)
-      ? giardiniereResult.rows
-      : [];
-
-    if (giardiniereRows.length === 0) {
-      res.statusCode = 400;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: false, message: 'Giardiniere non trovato.' }));
-      return;
-    }
 
     await savePushSubscription(db, normalizedGiardiniereId, {
       endpoint,

@@ -142,8 +142,12 @@ function GiardinierePage() {
       });
 
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        const message = body?.message || `Errore ${response.status} durante la registrazione push.`;
+        const body = await response.clone().json().catch(() => null);
+        const rawText = await response.text().catch(() => '');
+        const message =
+          body?.message ||
+          (rawText ? `Errore ${response.status} durante la registrazione push: ${rawText.slice(0, 180)}` : null) ||
+          `Errore ${response.status} durante la registrazione push.`;
         console.error('Push subscription save failed', response.status, body);
         setPushError(message);
         setPushStatus('unknown');
