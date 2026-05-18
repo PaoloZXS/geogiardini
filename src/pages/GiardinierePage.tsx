@@ -232,18 +232,6 @@ function GiardinierePage() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) return;
-
-    const intervalId = window.setInterval(() => {
-      setRefreshKey((current) => current + 1);
-    }, 10000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [userId]);
-
-  useEffect(() => {
     if (!userId || typeof window === 'undefined') return;
 
     const refreshPushSubscription = () => {
