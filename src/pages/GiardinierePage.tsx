@@ -129,13 +129,11 @@ function GiardinierePage() {
     }
 
     try {
-      let registration = await navigator.serviceWorker.getRegistration();
-      if (!registration) {
-        registration = await navigator.serviceWorker.register("/sw.js");
-      }
+      await navigator.serviceWorker.register("/sw.js");
+      const registration = await navigator.serviceWorker.ready;
       if (!registration) {
         throw new Error(
-          "Unable to register service worker for push notifications."
+          "Unable to activate service worker for push notifications."
         );
       }
 
@@ -399,10 +397,18 @@ function GiardinierePage() {
             );
             if (Notification.permission === "granted") {
               try {
-                new Notification(first.title || "Nuovo avviso", {
-                  body: first.message || "",
-                  icon: "/leaf-512.png"
-                });
+                const registration = await navigator.serviceWorker.ready;
+                if (registration) {
+                  await registration.showNotification(first.title || "Nuovo avviso", {
+                    body: first.message || "",
+                    icon: "/leaf-512.png"
+                  });
+                } else {
+                  new Notification(first.title || "Nuovo avviso", {
+                    body: first.message || "",
+                    icon: "/leaf-512.png"
+                  });
+                }
               } catch (notificationError) {
                 console.error("Browser notification failed", notificationError);
               }
