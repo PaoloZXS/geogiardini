@@ -187,6 +187,28 @@ function GiardinierePage() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId || typeof window === 'undefined') return;
+
+    const refreshPushSubscription = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        void registerPushSubscription(userId);
+      }
+    };
+
+    window.addEventListener('focus', refreshPushSubscription);
+    document.addEventListener('visibilitychange', refreshPushSubscription);
+
+    return () => {
+      window.removeEventListener('focus', refreshPushSubscription);
+      document.removeEventListener('visibilitychange', refreshPushSubscription);
+    };
+  }, [userId]);
+
+  useEffect(() => {
     if (!userId) return;
 
     const handleStorageChange = () => {
