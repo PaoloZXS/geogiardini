@@ -6,6 +6,12 @@ type LoginPageProps = {
   onLoginSuccess: (role: "admin" | "cliente" | "giardiniere") => void;
 };
 
+const normalizeName = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)(\S)/g, (_, separator, char) => `${separator}${char.toUpperCase()}`);
+
 type UserRole = "admin" | "cliente" | "giardiniere";
 
 type BeforeInstallPromptEvent = Event & {
@@ -196,7 +202,10 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem("loginRole", loginRole);
-        window.localStorage.setItem("loginUsername", username.trim());
+        window.localStorage.setItem(
+          "loginUsername",
+          loginRole === "admin" ? username.trim() : normalizeName(username)
+        );
         if (result.id) {
           window.localStorage.setItem("userId", result.id.toString());
         }

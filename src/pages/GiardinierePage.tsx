@@ -43,6 +43,10 @@ function GiardinierePage() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
   const [inAppPopup, setInAppPopup] = useState<{ title: string; body: string } | null>(null);
+  const [showUnreadNotifications, setShowUnreadNotifications] = useState(false);
+  const [showCompletedAppointments, setShowCompletedAppointments] = useState(false);
+  const unreadSectionRef = useRef<HTMLDivElement | null>(null);
+  const completedSectionRef = useRef<HTMLDivElement | null>(null);
   const previousUnreadIdsRef = useRef<Set<string>>(new Set());
   const popupTimeoutRef = useRef<number | null>(null);
 
@@ -453,10 +457,25 @@ function GiardinierePage() {
     };
   };
 
-  const unreadCount = notifications.filter((item) => item.read === 0).length;
+  const unreadNotifications = notifications.filter((item) => item.read === 0);
+  const unreadCount = unreadNotifications.length;
+  const appointmentCount = appointments.length;
+  const hasUnreadNotifications = unreadCount > 0;
+
+  useEffect(() => {
+    if (showUnreadNotifications && unreadSectionRef.current) {
+      unreadSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showUnreadNotifications]);
+
+  useEffect(() => {
+    if (showCompletedAppointments && completedSectionRef.current) {
+      completedSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showCompletedAppointments]);
 
   return (
-    <div className="bg-background text-on-surface min-h-screen p-6">
+    <div className="bg-background text-on-surface min-h-screen p-6 page-root">
       {inAppPopup ? (
         <div className="fixed bottom-6 right-6 z-[1200] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-primary/40 bg-surface shadow-2xl p-4">
           <div className="flex items-start justify-between gap-3">
@@ -475,25 +494,71 @@ function GiardinierePage() {
         </div>
       ) : null}
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="relative">
           <div>
-            <h1 className="font-headline-lg text-headline-lg">Ciao, {userName || 'Giardiniere'}</h1>
-            <p className="font-body-md text-on-surface-variant">
-              Qui trovi gli appuntamenti e le notifiche a te assegnate.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-              {unreadCount} notifiche non lette
+            <h1 className="font-headline-lg text-headline-lg admin-page__title">Ciao, {userName || 'Giardiniere'}</h1>
+            <div className="mt-4 ml-1 text-sm text-on-surface">
+              <div className="flex items-center gap-2 font-semibold text-primary">
+                <span className="material-symbols-outlined text-base">
+                  {pushStatus === 'subscribed' ? 'notifications_active' : 'notifications_off'}
+                </span>
+                {pushStatus === 'subscribed' ? 'Notifiche attive' : 'Notifiche non attive'}
+              </div>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                {pushStatus === 'unsupported' && 'Il browser non supporta le notifiche push o il service worker non è disponibile.'}
+                {pushStatus === 'denied' && 'Hai bloccato le notifiche del browser. Controlla le impostazioni del sito e riattiva le notifiche.'}
+                {pushStatus === 'granted' && 'Richiesta di sottoscrizione in corso...'}
+                {pushStatus === 'unknown' && 'Le notifiche push saranno attivate automaticamente.'}
+              </p>
+              {pushError ? (
+                <div className="mt-3 rounded-xl border border-error/40 bg-error/10 p-3 text-sm text-error">
+                  <strong>Errore push:</strong> {pushError}
+                </div>
+              ) : null}
             </div>
+            <div className="admin-page__divider mt-3" />
+          </div>
+          <div className="mt-4 flex flex-col gap-3">
+            {hasUnreadNotifications ? (
+              <button
+                type="button"
+                onClick={() => setShowUnreadNotifications((current) => !current)}
+                className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white border transition"
+                style={{ backgroundColor: '#b91c1c', borderColor: '#991b1b' }}
+              >
+                {showUnreadNotifications ? `${unreadCount} notifiche non lette · chiudi` : `${unreadCount} notifiche non lette`}
+              </button>
+            ) : (
+              <div className="w-full rounded-full px-4 py-2 text-sm font-semibold text-on-surface border"
+                style={{ backgroundColor: '#b91c1c', borderColor: '#991b1b' }}
+              >
+                Nessuna notifica non letta
+              </div>
+            )}
             <button
               type="button"
-              onClick={handleLogout}
-              className="inline-flex h-11 items-center justify-center rounded-full border border-outline-variant bg-surface px-4 text-sm font-bold transition hover:bg-surface-container-high"
+              onClick={() => setShowCompletedAppointments((current) => !current)}
+              className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white border transition"
+              style={{ backgroundColor: '#16a34a', borderColor: '#15803d' }}
             >
-              Logout
+              {showCompletedAppointments
+                ? `${appointmentCount} notifiche lette da evadere · chiudi`
+                : `${appointmentCount} notifiche lette da evadere`}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="absolute right-0 top-0 w-touch-target-min h-touch-target-min flex items-center justify-center rounded-full border border-outline-variant bg-surface transition-colors active:scale-95 duration-150"
+            aria-label="Logout"
+          >
+            <span
+              className="material-symbols-outlined text-on-surface-variant"
+              data-icon="logout"
+            >
+              logout
+            </span>
+          </button>
         </div>
 
         {error ? (
@@ -502,44 +567,13 @@ function GiardinierePage() {
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning">
-          <div className="font-semibold">
-            {pushStatus === 'subscribed'
-              ? 'Notifiche push attive'
-              : 'Notifiche push non attivate'}
-          </div>
-          <p className="mt-2 text-sm text-warning/foreground">
-            {pushStatus === 'unsupported' && 'Il browser non supporta le notifiche push o il service worker non è disponibile.'}
-            {pushStatus === 'denied' && 'Hai bloccato le notifiche del browser. Controlla le impostazioni del sito e riattiva le notifiche.'}
-            {pushStatus === 'granted' && 'Richiesta di sottoscrizione in corso...'}
-            {pushStatus === 'subscribed' && 'La sottoscrizione push è attiva. Se non vedi notifiche, prova ad aggiornare la sottoscrizione.'}
-            {pushStatus === 'unknown' && 'Premi il pulsante qui sotto per attivare le notifiche push.'}
-          </p>
-          <p className="mt-2 text-sm text-surface-variant">
-            Permessi: {notificationPermission}
-            <br />
-            Service Worker attivo: {serviceWorkerControlled ? 'sì' : 'no'}
-          </p>
-          {pushError ? (
-            <div className="mt-3 rounded-xl border border-error/40 bg-error/10 p-3 text-sm text-error">
-              <strong>Errore push:</strong> {pushError}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => registerPushSubscription(userId)}
-            className="mt-3 inline-flex h-11 items-center justify-center rounded-full border border-outline-variant bg-surface px-4 text-sm font-bold transition hover:bg-surface-container-high"
-          >
-            {pushStatus === 'subscribed' ? 'Aggiorna sottoscrizione push' : 'Abilita notifiche push'}
-          </button>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-          <section className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-2 mb-4">
+        <div className={`grid gap-6 ${showUnreadNotifications && showCompletedAppointments ? 'grid-cols-1 xl:grid-cols-[360px_1fr]' : 'grid-cols-1'}`}>
+          {showUnreadNotifications && (
+            <section ref={unreadSectionRef} className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-2 mb-4">
               <div>
                 <p className="font-label-sm text-label-sm text-on-surface-variant">Notifiche</p>
-                <h2 className="font-headline-sm text-headline-sm">Aggiornamenti</h2>
+                <h2 className="font-headline-sm text-headline-sm">Notifiche non lette</h2>
               </div>
               <button
                 type="button"
@@ -551,14 +585,14 @@ function GiardinierePage() {
             </div>
             {loading ? (
               <p className="text-sm text-on-surface-variant">Caricamento...</p>
-            ) : notifications.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">Nessuna notifica nuova.</p>
+            ) : unreadNotifications.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">Nessuna notifica non letta.</p>
             ) : (
               <div className="space-y-3">
-                {notifications.map((notification) => (
+                {unreadNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`rounded-2xl border p-4 transition ${notification.read === 0 ? 'border-primary/40 bg-primary/10' : 'border-outline-variant bg-surface'}`}
+                    className="rounded-2xl border border-outline-variant bg-surface p-4 transition"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -598,12 +632,13 @@ function GiardinierePage() {
               </div>
             )}
           </section>
+        )}
 
-          <section className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm">
-            <div className="mb-4">
-              <p className="font-label-sm text-label-sm text-on-surface-variant">Appuntamenti</p>
-              <h2 className="font-headline-sm text-headline-sm">I tuoi lavori</h2>
-            </div>
+          {showCompletedAppointments && (
+            <section ref={completedSectionRef} className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm">
+              <div className="mb-4">
+                <p className="font-label-sm text-label-sm text-on-surface-variant">Appuntamenti eseguiti</p>
+              </div>
             {loading ? (
               <p className="text-sm text-on-surface-variant">Caricamento...</p>
             ) : appointments.length === 0 ? (
@@ -629,6 +664,7 @@ function GiardinierePage() {
               </div>
             )}
           </section>
+        )}
         </div>
       </div>
     </div>

@@ -73,6 +73,16 @@
   padding-top: 2rem;
 }
 
+.page-root {
+  background-color: transparent;
+  background-image: var(--page-background, none);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  padding-top: 2rem;
+}
+
 .admin-page__title,
 .admin-page__welcome {
   color: var(--brand-blue);
