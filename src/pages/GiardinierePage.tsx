@@ -45,7 +45,9 @@ function GiardinierePage() {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>("default");
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
-  const [subscriptionEndpoint, setSubscriptionEndpoint] = useState<string | null>(null);
+  const [subscriptionEndpoint, setSubscriptionEndpoint] = useState<
+    string | null
+  >(null);
   const [pushTestMessage, setPushTestMessage] = useState<string | null>(null);
   const [isTestPushSending, setIsTestPushSending] = useState(false);
   const [inAppPopup, setInAppPopup] = useState<{
@@ -243,7 +245,9 @@ function GiardinierePage() {
     } catch (error) {
       console.error("Push registration failed", error);
       console.error("Push registration failed", error);
-      setPushError(error instanceof Error ? error.message : "Registrazione push fallita.");
+      setPushError(
+        error instanceof Error ? error.message : "Registrazione push fallita."
+      );
       setPushStatus("denied");
       setServiceWorkerControlled(!!navigator.serviceWorker.controller);
     }
@@ -263,8 +267,8 @@ function GiardinierePage() {
           giardiniereId: userId,
           title: "Test notifiche push",
           message:
-            "Questa è una notifica di prova inviata direttamente al tuo dispositivo.",
-        }),
+            "Questa è una notifica di prova inviata direttamente al tuo dispositivo."
+        })
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success) {
@@ -277,14 +281,10 @@ function GiardinierePage() {
       );
     } catch (error) {
       setPushTestMessage(
-        error instanceof Error
-          ? error.message
-          : "Errore invio test push."
+        error instanceof Error ? error.message : "Errore invio test push."
       );
     } finally {
       setIsTestPushSending(false);
-    }
-  };
     }
   };
 
@@ -674,7 +674,9 @@ function GiardinierePage() {
               {subscriptionEndpoint ? (
                 <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-on-surface-variant">
                   <strong>Endpoint sottoscrizione:</strong>
-                  <div className="truncate break-all">{subscriptionEndpoint}</div>
+                  <div className="truncate break-all">
+                    {subscriptionEndpoint}
+                  </div>
                 </div>
               ) : null}
               {pushStatus === "subscribed" ? (
@@ -688,7 +690,9 @@ function GiardinierePage() {
                     {isTestPushSending ? "Invio test..." : "Invia test push"}
                   </button>
                   {pushTestMessage ? (
-                    <p className="text-sm text-on-surface-variant">{pushTestMessage}</p>
+                    <p className="text-sm text-on-surface-variant">
+                      {pushTestMessage}
+                    </p>
                   ) : null}
                 </div>
               ) : null}
