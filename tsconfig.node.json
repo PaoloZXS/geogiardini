@@ -9,5 +9,11 @@
     "allowSyntheticDefaultImports": true,
     "composite": true
   },
-  "include": ["vite.config.ts", "server.ts", "api/**/*.ts", "lib/**/*.ts"]
+  "include": [
+    "vite.config.ts",
+    "server.ts",
+    "api/**/*.ts",
+    "lib/**/*.ts",
+    "src/apiHandlers/**/*.ts"
+  ]
 }
