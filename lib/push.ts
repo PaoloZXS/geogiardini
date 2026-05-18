@@ -1,5 +1,3 @@
-import webpush from 'web-push';
-
 type PushPayload = {
   title: string;
   body: string;
@@ -13,6 +11,17 @@ type PushSubscriptionRecord = {
 };
 
 let isConfigured = false;
+let webpushInstance: any = null;
+
+async function getWebpush() {
+  if (webpushInstance) {
+    return webpushInstance;
+  }
+
+  const mod = await import('web-push');
+  webpushInstance = (mod as any).default ?? mod;
+  return webpushInstance;
+}
 
 function getVapidKeys() {
   const publicKey = process.env.VAPID_PUBLIC_KEY?.toString().trim() ?? '';
@@ -20,7 +29,7 @@ function getVapidKeys() {
   return { publicKey, privateKey };
 }
 
-function ensureConfigured() {
+async function ensureConfigured() {
   if (isConfigured) {
     return;
   }
@@ -30,6 +39,7 @@ function ensureConfigured() {
     throw new Error('VAPID keys are not configured on server environment variables.');
   }
 
+  const webpush = await getWebpush();
   webpush.setVapidDetails('mailto:admin@geogiardini.it', publicKey, privateKey);
   isConfigured = true;
 }
@@ -73,7 +83,8 @@ export async function sendPushToGiardinieri(
 ) {
   if (!giardinieriIds.length) return;
 
-  ensureConfigured();
+  await ensureConfigured();
+  const webpush = await getWebpush();
   await ensurePushSubscriptionsTable(db);
 
   const placeholders = giardinieriIds.map(() => '?').join(',');
