@@ -8,8 +8,8 @@ import { createClient } from "@libsql/client";
 
 const databaseUrl = process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
-const adminUsername = process.env.ADMIN_USERNAME;
-const adminCode = process.env.ADMIN_CODE;
+const adminUsername = process.env.ADMIN_USERNAME || "Angelo";
+const adminCode = process.env.ADMIN_CODE || "A2026";
 
 const vapidKeysFile = path.resolve("vapid-keys.json");
 let vapidKeys = {
@@ -85,14 +85,6 @@ async function startServer() {
       }
 
       if (role === "admin") {
-        if (!adminUsername || !adminCode) {
-          return res.status(500).json({
-            success: false,
-            message:
-              "Credenziali admin non configurate sul server (ADMIN_USERNAME/ADMIN_CODE)."
-          });
-        }
-
         if (username === adminUsername && code === adminCode) {
           return res
             .status(200)
