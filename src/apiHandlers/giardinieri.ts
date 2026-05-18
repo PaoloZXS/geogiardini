@@ -64,7 +64,7 @@ async function ensureGiardinieriTable(db: any) {
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
+  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'DELETE') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ success: false, message: 'Method not allowed.' }));
@@ -73,6 +73,21 @@ export default async function handler(req: any, res: any) {
 
   try {
     const db = await createDbClient();
+    const id = req.query?.id?.toString?.().trim() || req.params?.id?.toString?.().trim();
+
+    if (req.method === 'DELETE') {
+      if (!id) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, message: 'Id giardiniere mancante.' }));
+        return;
+      }
+      await db.execute('DELETE FROM giardinieri WHERE id = ?', [id]);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
 
     if (req.method === 'GET') {
       const result = await db.execute('SELECT id, username, codice, created_at, attivo FROM giardinieri ORDER BY created_at DESC', []);

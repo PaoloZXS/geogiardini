@@ -7,25 +7,25 @@ import giardinieriHandler from "../src/apiHandlers/giardinieri";
 import helloHandler from "../src/apiHandlers/hello";
 import loginHandler from "../src/apiHandlers/login";
 import notificheHandler from "../src/apiHandlers/notifiche";
+import notificheReadHandler from "../src/apiHandlers/notifiche/[id]/read";
 import pushPublicKeyHandler from "../src/apiHandlers/push-public-key";
 import pushSubscriptionHandler from "../src/apiHandlers/push-subscription";
 import pushTestHandler from "../src/apiHandlers/push-test";
 
 export default async function handler(req: any, res: any) {
-  let slug = req.query?.slug;
-  let pathSegments = Array.isArray(slug)
-    ? slug
-    : typeof slug === "string"
-      ? [slug]
-      : [];
+  const slug = req.query?.slug;
+  let rawPath = "";
 
-  if (pathSegments.length === 0 && typeof req.url === "string") {
+  if (Array.isArray(slug)) {
+    rawPath = slug.join("/");
+  } else if (typeof slug === "string") {
+    rawPath = slug;
+  } else if (typeof req.url === "string") {
     const match = req.url.match(/^\/api\/(.*?)(?:\?|#|$)/);
-    if (match?.[1]) {
-      pathSegments = match[1].split("/").filter(Boolean);
-    }
+    rawPath = match?.[1] ?? "";
   }
 
+  const pathSegments = rawPath.split("/").filter(Boolean);
   const route = pathSegments.join("/");
 
   if (route === "") {
@@ -36,6 +36,12 @@ export default async function handler(req: any, res: any) {
   }
 
   const primary = pathSegments[0];
+  const remainingSegments = pathSegments.slice(1);
+  req.params = {
+    slug: remainingSegments,
+    id: remainingSegments[0]?.toString?.() ?? null,
+    action: remainingSegments[1]?.toString?.() ?? null
+  };
 
   switch (primary) {
     case "appuntamenti":
@@ -55,6 +61,10 @@ export default async function handler(req: any, res: any) {
     case "login":
       return loginHandler(req, res);
     case "notifiche":
+      if (remainingSegments[1] === "read" && remainingSegments[0]) {
+        req.query = { ...(req.query ?? {}), id: remainingSegments[0] };
+        return notificheReadHandler(req, res);
+      }
       return notificheHandler(req, res);
     case "push-public-key":
       return pushPublicKeyHandler(req, res);

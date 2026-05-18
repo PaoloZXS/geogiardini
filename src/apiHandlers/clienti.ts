@@ -68,7 +68,7 @@ async function ensureClientiTable(db: any) {
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
+  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'DELETE') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ success: false, message: 'Method not allowed.' }));
@@ -77,6 +77,21 @@ export default async function handler(req: any, res: any) {
 
   try {
     const db = await createDbClient();
+    const id = req.query?.id?.toString?.().trim() || req.params?.id?.toString?.().trim();
+
+    if (req.method === 'DELETE') {
+      if (!id) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, message: 'Id cliente mancante.' }));
+        return;
+      }
+      await db.execute('DELETE FROM clienti WHERE id = ?', [id]);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
 
     if (req.method === 'GET') {
       const result = await db.execute('SELECT id, nome, indirizzo, telefono, codice, attivo FROM clienti ORDER BY id DESC', []);

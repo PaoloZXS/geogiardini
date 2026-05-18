@@ -68,7 +68,7 @@ async function ensureAttivitaTable(db: any) {
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
+  if (req.method !== 'GET' && req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'DELETE') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ success: false, message: 'Method not allowed.' }));
@@ -77,6 +77,37 @@ export default async function handler(req: any, res: any) {
 
   try {
     const db = await createDbClient();
+    const id = req.query?.id?.toString?.().trim() || req.params?.id?.toString?.().trim();
+
+    if (req.method === 'PUT') {
+      if (!id) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, message: 'Id attività mancante.' }));
+        return;
+      }
+      const { completed } = req.body ?? {};
+      const isCompleted = completed ? 1 : 0;
+      await db.execute('UPDATE attivita SET completed = ? WHERE id = ?', [isCompleted, id]);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      if (!id) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, message: 'Id attività mancante.' }));
+        return;
+      }
+      await db.execute('DELETE FROM attivita WHERE id = ?', [id]);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
 
     if (req.method === 'GET') {
       const result = await db.execute('SELECT id, description, completed, created_at FROM attivita ORDER BY LOWER(description) ASC', []);
