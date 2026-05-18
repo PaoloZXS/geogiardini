@@ -10,7 +10,15 @@ export async function unregisterOldServiceWorkers() {
 }
 
 export function registerServiceWorker() {
-  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) {
+  if (!('serviceWorker' in navigator)) {
+    return;
+  }
+
+  const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+
+  if (!import.meta.env.PROD && !isLocalhost) {
     return;
   }
 
@@ -23,6 +31,15 @@ export function registerServiceWorker() {
 
       if (registration.waiting) {
         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+
+      if (registration.active && !navigator.serviceWorker.controller) {
+        const hasReloaded = sessionStorage.getItem('swReloaded') === '1';
+        if (!hasReloaded) {
+          sessionStorage.setItem('swReloaded', '1');
+          window.location.reload();
+          return;
+        }
       }
 
       registration.addEventListener('updatefound', () => {
@@ -40,6 +57,7 @@ export function registerServiceWorker() {
   });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    sessionStorage.removeItem('swReloaded');
     window.location.reload();
   });
 }

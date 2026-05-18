@@ -1,11 +1,55 @@
+import fs from "fs";
+import path from "path";
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import webpush from "web-push";
 import { createClient } from "@libsql/client";
 
 const databaseUrl = "libsql://geogiardini-paolozxs.aws-eu-west-1.turso.io";
 const authToken =
   "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzgwODIzMzgsImlkIjoiMDE5ZGZkOGItZWEwMS03NGI2LTkzNTUtZDgxNjI4YjEzMDlkIiwicmlkIjoiZjFjYTE4ZDktOTMxOS00MmFkLTg4NTEtNDFiODVlMTEzOTNiIn0.ZwsaKrGcqLR_THEJ9OUGCE8pOK8mRs7P8fuOhodrsDwIPrff5UVKA2oR6ePLNxRm0cpcmQmaIS1eSV7T0D16CA";
+
+const vapidKeysFile = path.resolve("vapid-keys.json");
+let vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY ?? "",
+  privateKey: process.env.VAPID_PRIVATE_KEY ?? ""
+};
+
+if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
+  try {
+    if (fs.existsSync(vapidKeysFile)) {
+      const saved = JSON.parse(fs.readFileSync(vapidKeysFile, "utf8"));
+      if (saved.publicKey && saved.privateKey) {
+        vapidKeys = {
+          publicKey: saved.publicKey,
+          privateKey: saved.privateKey
+        };
+      }
+    }
+  } catch (error) {
+    console.warn("Impossibile leggere le chiavi VAPID da file:", error);
+  }
+}
+
+if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
+  const generatedKeys = webpush.generateVAPIDKeys();
+  vapidKeys = {
+    publicKey: generatedKeys.publicKey,
+    privateKey: generatedKeys.privateKey
+  };
+  try {
+    fs.writeFileSync(vapidKeysFile, JSON.stringify(vapidKeys), "utf8");
+  } catch (error) {
+    console.warn("Impossibile salvare le chiavi VAPID su file:", error);
+  }
+}
+
+webpush.setVapidDetails(
+  "mailto:admin@geogiardini.it",
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
 
 async function startServer() {
   const db = createClient({
@@ -537,6 +581,76 @@ async function startServer() {
     }
   }
 
+  async function ensurePushSubscriptionsTable() {
+    await db.execute(
+      "CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, giardiniere_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+      []
+    );
+  }
+
+  async function cleanupStaleSubscription(endpoint: string) {
+    try {
+      await db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", [endpoint]);
+    } catch (error) {
+      console.error("Failed to cleanup stale push subscription", error);
+    }
+  }
+
+  async function sendPushNotificationToSubscription(
+    subscription: unknown,
+    payload: unknown
+  ) {
+    try {
+      console.log("Sending push notification to", (subscription as any)?.endpoint);
+      await webpush.sendNotification(subscription as any, JSON.stringify(payload));
+    } catch (error: any) {
+      const statusCode = error?.statusCode;
+      const endpoint = (subscription as any)?.endpoint;
+      console.error("Error sending push notification:", statusCode, endpoint, error?.body || error?.message || error);
+      if (statusCode === 410 || statusCode === 404) {
+        if (endpoint) {
+          await cleanupStaleSubscription(endpoint);
+        }
+      }
+    }
+  }
+
+  async function sendPushNotifications(giardiniereIds: string[], payload: unknown) {
+    if (giardiniereIds.length === 0) {
+      return;
+    }
+
+    await ensurePushSubscriptionsTable();
+    const placeholders = giardiniereIds.map(() => "?").join(",");
+    const subscriptionsResult = await db.execute(
+      `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE giardiniere_id IN (${placeholders})`,
+      giardiniereIds
+    );
+    const subscriptionRows = Array.isArray(subscriptionsResult.rows)
+      ? subscriptionsResult.rows
+      : [];
+
+    for (const row of subscriptionRows) {
+      const endpoint = row?.endpoint?.toString()?.trim();
+      const p256dh = row?.p256dh?.toString()?.trim();
+      const auth = row?.auth?.toString()?.trim();
+      if (!endpoint || !p256dh || !auth) {
+        continue;
+      }
+
+      await sendPushNotificationToSubscription(
+        {
+          endpoint,
+          keys: {
+            p256dh,
+            auth
+          }
+        },
+        payload
+      );
+    }
+  }
+
   app.post("/api/appuntamenti", async (req, res) => {
     try {
       const { data, clienteId, giardinieriIds, attivita, note } = req.body as {
@@ -764,6 +878,103 @@ async function startServer() {
     }
   });
 
+  app.get("/api/push-public-key", async (_req, res) => {
+    try {
+      return res.json({ success: true, publicKey: vapidKeys.publicKey });
+    } catch (error) {
+      console.error("Fetching push public key failed", error);
+      return res.status(500).json({
+        success: false,
+        publicKey: null,
+        message: "Errore caricamento chiave pubblica per le notifiche push."
+      });
+    }
+  });
+
+  app.post("/api/push-subscription", async (req, res) => {
+    try {
+      const { giardiniereId, subscription } = req.body as {
+        giardiniereId?: string;
+        subscription?: {
+          endpoint?: string;
+          keys?: { p256dh?: string; auth?: string };
+        };
+      };
+
+      const endpoint = subscription?.endpoint?.toString().trim();
+      const p256dh = subscription?.keys?.p256dh?.toString().trim();
+      const auth = subscription?.keys?.auth?.toString().trim();
+
+      if (!giardiniereId || !endpoint || !p256dh || !auth) {
+        return res.status(400).json({
+          success: false,
+          message: "Sottoscrizione push non valida."
+        });
+      }
+
+      await ensureGiardinieriTable();
+      await ensurePushSubscriptionsTable();
+
+      const giardiniereResult = await db.execute(
+        "SELECT id FROM giardinieri WHERE id = ? LIMIT 1",
+        [giardiniereId]
+      );
+      const giardiniereRows = Array.isArray(giardiniereResult.rows)
+        ? giardiniereResult.rows
+        : [];
+
+      if (giardiniereRows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Giardiniere non trovato."
+        });
+      }
+
+      const now = new Date().toISOString();
+      await db.execute(
+        "INSERT INTO push_subscriptions (id, giardiniere_id, endpoint, p256dh, auth, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET giardiniere_id = excluded.giardiniere_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = excluded.updated_at",
+        [
+          crypto.randomUUID(),
+          giardiniereId,
+          endpoint,
+          p256dh,
+          auth,
+          now,
+          now
+        ]
+      );
+
+      console.log(`Push subscription saved for giardiniere ${giardiniereId} (${endpoint})`);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Saving push subscription failed", error);
+      return res.status(500).json({
+        success: false,
+        message: "Errore durante il salvataggio della sottoscrizione push."
+      });
+    }
+  });
+
+  app.get("/api/push-subscriptions/count", async (_req, res) => {
+    try {
+      await ensurePushSubscriptionsTable();
+      const result = await db.execute(
+        "SELECT COUNT(*) AS count FROM push_subscriptions",
+        []
+      );
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      const count = rows[0]?.count ?? 0;
+      return res.json({ success: true, count });
+    } catch (error) {
+      console.error("Fetching push subscriptions count failed", error);
+      return res.status(500).json({
+        success: false,
+        count: 0,
+        message: "Errore durante il conteggio delle sottoscrizioni push."
+      });
+    }
+  });
+
   app.get("/api/notifiche", async (req, res) => {
     try {
       await ensureNotificheTable();
@@ -868,6 +1079,16 @@ async function startServer() {
           ]
         );
       }
+
+      await sendPushNotifications(recipients, {
+        title: trimmedTitle,
+        body: trimmedMessage,
+        data: {
+          type: "notifica",
+          clienteId: trimmedClienteId || null,
+          createdAt
+        }
+      });
 
       return res.json({ success: true });
     } catch (error) {

@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
 type NotificationItem = {
   id: string;
   title: string;
@@ -27,6 +38,120 @@ function GiardinierePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pushStatus, setPushStatus] = useState<'unknown' | 'unsupported' | 'denied' | 'granted' | 'subscribed'>('unknown');
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
+
+  const registerPushSubscription = async (userId: string) => {
+    setPushError(null);
+    if (
+      typeof window === 'undefined' ||
+      !('serviceWorker' in navigator) ||
+      !('PushManager' in window) ||
+      !('Notification' in window)
+    ) {
+      setPushStatus('unsupported');
+      setNotificationPermission(
+        typeof window !== 'undefined' ? Notification.permission : 'default'
+      );
+      setServiceWorkerControlled(
+        typeof window !== 'undefined' && 'serviceWorker' in navigator
+          ? !!navigator.serviceWorker.controller
+          : false
+      );
+      setPushError('Il browser non supporta le notifiche push.');
+      return;
+    }
+
+    setNotificationPermission(Notification.permission);
+    setServiceWorkerControlled(!!navigator.serviceWorker.controller);
+
+    if (Notification.permission === 'denied') {
+      setPushStatus('denied');
+      setPushError('Notifiche bloccate nelle impostazioni del browser.');
+      return;
+    }
+
+    setPushStatus('granted');
+    if (
+      typeof window === 'undefined' ||
+      !('serviceWorker' in navigator) ||
+      !('PushManager' in window) ||
+      !('Notification' in window)
+    ) {
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission();
+          setNotificationPermission(permission);
+          if (permission !== 'granted') {
+            setPushStatus('denied');
+            setPushError('Permessi notifiche non concessi.');
+            return;
+          }
+        }
+
+        if (Notification.permission !== 'granted') {
+          setPushStatus('denied');
+          setPushError('Permessi notifiche non concessi.');
+          return;
+        }
+
+        const publicKeyResponse = await fetch('/api/push-public-key');
+        const publicKeyData = await publicKeyResponse.json().catch(() => null);
+        const applicationServerKey = urlBase64ToUint8Array(
+          publicKeyData?.publicKey || ''
+        );
+
+        if (!applicationServerKey.length) {
+          const message = 'Chiave pubblica push non valida dal server.';
+          console.error(message);
+          setPushError(message);
+          setPushStatus('unknown');
+          return;
+        }
+
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      }
+
+      const response = await fetch('/api/push-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          giardiniereId: userId,
+          subscription
+        })
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const message = body?.message || `Errore ${response.status} durante la registrazione push.`;
+        console.error('Push subscription save failed', response.status, body);
+        setPushError(message);
+        setPushStatus('unknown');
+        return;
+      }
+
+      setPushStatus('subscribed');
+      setPushError(null);
+      setServiceWorkerControlled(!!navigator.serviceWorker.controller);
+    } catch (error) {
+      console.error('Push registration failed', error);
+      setPushError(error instanceof Error ? error.message : 'Registrazione push fallita.');
+      setPushStatus('denied');
+      setServiceWorkerControlled(!!navigator.serviceWorker.controller);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -42,6 +167,39 @@ function GiardinierePage() {
     setUserId(storedId);
     setUserName(storedName);
   }, [navigate]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    registerPushSubscription(userId);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const handleStorageChange = () => {
+      const lastPush = window.localStorage.getItem('pushNotificationReceived');
+      if (lastPush) {
+        setRefreshKey((current) => current + 1);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PUSH_RECEIVED') {
+        setRefreshKey((current) => current + 1);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -78,18 +236,6 @@ function GiardinierePage() {
 
     fetchData();
   }, [userId, refreshKey]);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const interval = window.setInterval(() => {
-      setRefreshKey((current) => current + 1);
-    }, 15000); // aggiorna automaticamente ogni 15 secondi
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [userId]);
 
   const markNotificationRead = async (id: string) => {
     try {
@@ -213,6 +359,38 @@ function GiardinierePage() {
             {error}
           </div>
         ) : null}
+
+        <div className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning">
+          <div className="font-semibold">
+            {pushStatus === 'subscribed'
+              ? 'Notifiche push attive'
+              : 'Notifiche push non attivate'}
+          </div>
+          <p className="mt-2 text-sm text-warning/foreground">
+            {pushStatus === 'unsupported' && 'Il browser non supporta le notifiche push o il service worker non è disponibile.'}
+            {pushStatus === 'denied' && 'Hai bloccato le notifiche del browser. Controlla le impostazioni del sito e riattiva le notifiche.'}
+            {pushStatus === 'granted' && 'Richiesta di sottoscrizione in corso...'}
+            {pushStatus === 'subscribed' && 'La sottoscrizione push è attiva. Se non vedi notifiche, prova ad aggiornare la sottoscrizione.'}
+            {pushStatus === 'unknown' && 'Premi il pulsante qui sotto per attivare le notifiche push.'}
+          </p>
+          <p className="mt-2 text-sm text-surface-variant">
+            Permessi: {notificationPermission}
+            <br />
+            Service Worker attivo: {serviceWorkerControlled ? 'sì' : 'no'}
+          </p>
+          {pushError ? (
+            <div className="mt-3 rounded-xl border border-error/40 bg-error/10 p-3 text-sm text-error">
+              <strong>Errore push:</strong> {pushError}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => registerPushSubscription(userId)}
+            className="mt-3 inline-flex h-11 items-center justify-center rounded-full border border-outline-variant bg-surface px-4 text-sm font-bold transition hover:bg-surface-container-high"
+          >
+            {pushStatus === 'subscribed' ? 'Aggiorna sottoscrizione push' : 'Abilita notifiche push'}
+          </button>
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
           <section className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm">

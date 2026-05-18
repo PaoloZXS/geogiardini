@@ -1,4 +1,4 @@
-const CACHE_NAME = "oggi-app-v5";
+const CACHE_NAME = "oggi-app-v6";
 const ASSETS_TO_CACHE = ["/", "/index.html", "/favicon.svg", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -23,67 +23,49 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const requestUrl = new URL(request.url);
-
-  if (
-    request.mode === "navigate" ||
-    (request.method === "GET" &&
-      request.headers.get("accept")?.includes("text/html"))
-  ) {
-    event.respondWith(
-      fetch(request, { cache: "no-store" })
-        .then((response) => {
-          const responseClone = response.clone();
-          caches
-            .open(CACHE_NAME)
-            .then((cache) => cache.put(request, responseClone));
-          return response;
-        })
-        .catch(() => caches.match("/index.html"))
-    );
-    return;
-  }
-
-  if (requestUrl.pathname.startsWith("/api/")) {
-    if (request.method !== "GET") {
-      event.respondWith(
-        fetch(request, { cache: "no-store" }).catch(
-          () =>
-            new Response(
-              JSON.stringify({
-                message: "Impossibile raggiungere il server API."
-              }),
-              {
-                status: 503,
-                statusText: "Service Unavailable",
-                headers: { "Content-Type": "application/json" }
-              }
-            )
-        )
-      );
-      return;
+self.addEventListener('push', (event) => {
+  const data = event.data?.json?.() ?? {};
+  const title = data.title || 'Nuova notifica';
+  const options = {
+    body: data.body || data.message || '',
+    icon: '/leaf-512.png',
+    badge: '/leaf-512.png',
+    requireInteraction: true,
+    data: {
+      url: data.url || '/',
+      ...data.data
     }
+  };
 
-    event.respondWith(
-      fetch(request, { cache: "no-store" })
-        .then((response) => response)
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  event.respondWith(
-    fetch(request, { cache: "no-store" })
-      .then((response) => {
-        const responseClone = response.clone();
-        caches
-          .open(CACHE_NAME)
-          .then((cache) => cache.put(request, responseClone));
-        return response;
+  console.log('ServiceWorker push event received', data);
+  event.waitUntil(
+    Promise.all([
+      self.registration
+        .showNotification(title, options)
+        .then(() => console.log('ServiceWorker notification shown', title, options))
+        .catch((error) => console.error('ServiceWorker showNotification failed', error)),
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'PUSH_RECEIVED' }));
       })
-      .catch(() => caches.match(request))
+    ])
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client && client.url === targetUrl) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
   );
 });
 
