@@ -57,6 +57,26 @@ function GiardinierePage() {
     }, 5000);
   };
 
+  const updateAppBadge = (unreadCount: number) => {
+    if (typeof window === 'undefined') return;
+    const nav = navigator as any;
+
+    if (typeof nav.setAppBadge === 'function') {
+      if (unreadCount > 0) {
+        void nav.setAppBadge(unreadCount).catch((error: unknown) => {
+          console.error('App badge set failed', error);
+        });
+        return;
+      }
+
+      if (typeof nav.clearAppBadge === 'function') {
+        void nav.clearAppBadge().catch((error: unknown) => {
+          console.error('App badge clear failed', error);
+        });
+      }
+    }
+  };
+
   const registerPushSubscription = async (userId: string) => {
     setPushError(null);
     if (
@@ -339,6 +359,7 @@ function GiardinierePage() {
         }
 
         previousUnreadIdsRef.current = nextUnreadIds;
+        updateAppBadge(nextUnreadIds.size);
         setNotifications(nextNotifications);
         setAppointments(Array.isArray(appointmentsData?.appointments) ? appointmentsData.appointments : []);
       } catch (err) {
@@ -371,6 +392,7 @@ function GiardinierePage() {
       window.localStorage.removeItem('userId');
       window.localStorage.removeItem('loginUsername');
       window.localStorage.removeItem('loginRole');
+      updateAppBadge(0);
     }
     navigate('/geologin', { replace: true });
   };

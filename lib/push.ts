@@ -105,19 +105,34 @@ export async function sendPushToGiardinieri(
 
   const placeholders = giardinieriIds.map(() => '?').join(',');
   const result = await db.execute(
-    `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE giardiniere_id IN (${placeholders})`,
+    `SELECT giardiniere_id, endpoint, p256dh, auth FROM push_subscriptions WHERE giardiniere_id IN (${placeholders})`,
     giardinieriIds
   );
 
   const rows = (Array.isArray(result.rows) ? result.rows : []) as any[];
   stats.subscriptionCount = rows.length;
   for (const row of rows) {
+    const giardiniereId = row?.giardiniere_id?.toString?.() ?? '';
     const endpoint = row?.endpoint?.toString?.() ?? '';
     const p256dh = row?.p256dh?.toString?.() ?? '';
     const auth = row?.auth?.toString?.() ?? '';
-    if (!endpoint || !p256dh || !auth) {
+    if (!giardiniereId || !endpoint || !p256dh || !auth) {
       continue;
     }
+
+    const unreadResult = await db.execute(
+      'SELECT COUNT(*) AS count FROM notifiche WHERE giardiniere_id = ? AND read = 0',
+      [giardiniereId]
+    );
+    const unreadRow = Array.isArray(unreadResult.rows) ? unreadResult.rows[0] : null;
+    const unreadCount = Number(unreadRow?.count ?? Object.values(unreadRow ?? {})[0] ?? 0) || 0;
+    const payloadWithBadge = {
+      ...payload,
+      data: {
+        ...(payload.data ?? {}),
+        badgeCount: unreadCount
+      }
+    };
 
     try {
       await webpush.sendNotification(
@@ -125,7 +140,7 @@ export async function sendPushToGiardinieri(
           endpoint,
           keys: { p256dh, auth }
         },
-        JSON.stringify(payload)
+        JSON.stringify(payloadWithBadge)
       );
       stats.acceptedCount += 1;
     } catch (error: any) {

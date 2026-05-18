@@ -26,6 +26,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data?.json?.() ?? {};
   const title = data.title || 'Nuova notifica';
+  const badgeCount = Number(data.badgeCount ?? data.data?.badgeCount ?? 0) || 0;
   const options = {
     body: data.body || data.message || '',
     icon: '/leaf-512.png',
@@ -33,9 +34,23 @@ self.addEventListener('push', (event) => {
     requireInteraction: true,
     data: {
       url: data.url || '/',
-      ...data.data
+      ...data.data,
+      badgeCount
     }
   };
+
+  const updateBadgePromise = (() => {
+    if (typeof self.registration.setAppBadge === 'function') {
+      if (badgeCount > 0) {
+        return self.registration.setAppBadge(badgeCount);
+      }
+      if (typeof self.registration.clearAppBadge === 'function') {
+        return self.registration.clearAppBadge();
+      }
+      return self.registration.setAppBadge(0);
+    }
+    return Promise.resolve();
+  })();
 
   console.log('ServiceWorker push event received', data);
   event.waitUntil(
@@ -44,8 +59,9 @@ self.addEventListener('push', (event) => {
         .showNotification(title, options)
         .then(() => console.log('ServiceWorker notification shown', title, options))
         .catch((error) => console.error('ServiceWorker showNotification failed', error)),
+      updateBadgePromise.catch((error) => console.error('ServiceWorker app badge update failed', error)),
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-        clients.forEach((client) => client.postMessage({ type: 'PUSH_RECEIVED' }));
+        clients.forEach((client) => client.postMessage({ type: 'PUSH_RECEIVED', badgeCount }));
       })
     ])
   );
