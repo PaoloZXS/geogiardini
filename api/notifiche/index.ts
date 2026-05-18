@@ -1,5 +1,3 @@
-import { sendPushToGiardinieri } from '../../lib/push';
-
 async function createDbClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
@@ -178,16 +176,22 @@ export default async function handler(req: any, res: any) {
       );
     }
 
-    await sendPushToGiardinieri(db, recipients, {
-      title: trimmedTitle,
-      body: trimmedMessage,
-      data: {
-        url: '/',
-        type: 'notifica',
-        clienteId: trimmedClienteId || null,
-        createdAt
-      }
-    });
+    try {
+      const { sendPushToGiardinieri } = await import('../../lib/push');
+      await sendPushToGiardinieri(db, recipients, {
+        title: trimmedTitle,
+        body: trimmedMessage,
+        data: {
+          url: '/',
+          type: 'notifica',
+          clienteId: trimmedClienteId || null,
+          createdAt
+        }
+      });
+    } catch (pushError) {
+      // Keep notification persistence successful even if push delivery fails.
+      console.error('Push send in notifiche API failed', pushError);
+    }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');

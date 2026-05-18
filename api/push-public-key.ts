@@ -1,8 +1,6 @@
-import { getPushPublicKey } from '../lib/push';
-
 export default async function handler(_req: any, res: any) {
   try {
-    const publicKey = getPushPublicKey();
+    const publicKey = process.env.VAPID_PUBLIC_KEY?.toString().trim() ?? '';
     if (!publicKey) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
@@ -10,7 +8,7 @@ export default async function handler(_req: any, res: any) {
         JSON.stringify({
           success: false,
           publicKey: null,
-          message: 'Chiavi VAPID non configurate sul server.'
+          message: 'VAPID_PUBLIC_KEY non configurata su Vercel (Environment Variables).'
         })
       );
       return;
