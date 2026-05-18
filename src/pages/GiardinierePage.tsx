@@ -87,6 +87,38 @@ function GiardinierePage() {
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
 
+      const publicKeyResponse = await fetch('/api/push-public-key');
+      const publicKeyData = await publicKeyResponse.json().catch(() => null);
+      if (!publicKeyResponse.ok) {
+        const serverMessage =
+          publicKeyData?.message ||
+          `Errore ${publicKeyResponse.status} recuperando la chiave push dal server.`;
+        setPushError(serverMessage);
+        setPushStatus('unknown');
+        return;
+      }
+
+      const serverPublicKey = publicKeyData?.publicKey || '';
+      const applicationServerKey = urlBase64ToUint8Array(serverPublicKey);
+
+      if (!applicationServerKey.length) {
+        const message = 'Chiave pubblica push non valida dal server.';
+        console.error(message);
+        setPushError(message);
+        setPushStatus('unknown');
+        return;
+      }
+
+      const storedVapidKey = window.localStorage.getItem('pushVapidPublicKey');
+      if (subscription && storedVapidKey && storedVapidKey !== serverPublicKey) {
+        try {
+          await subscription.unsubscribe();
+        } catch (unsubscribeError) {
+          console.warn('Impossibile rimuovere la vecchia push subscription', unsubscribeError);
+        }
+        subscription = null;
+      }
+
       if (!subscription) {
         if (Notification.permission === 'default') {
           const permission = await Notification.requestPermission();
@@ -101,28 +133,6 @@ function GiardinierePage() {
         if (Notification.permission !== 'granted') {
           setPushStatus('denied');
           setPushError('Permessi notifiche non concessi.');
-          return;
-        }
-
-        const publicKeyResponse = await fetch('/api/push-public-key');
-        const publicKeyData = await publicKeyResponse.json().catch(() => null);
-        if (!publicKeyResponse.ok) {
-          const serverMessage =
-            publicKeyData?.message ||
-            `Errore ${publicKeyResponse.status} recuperando la chiave push dal server.`;
-          setPushError(serverMessage);
-          setPushStatus('unknown');
-          return;
-        }
-        const applicationServerKey = urlBase64ToUint8Array(
-          publicKeyData?.publicKey || ''
-        );
-
-        if (!applicationServerKey.length) {
-          const message = 'Chiave pubblica push non valida dal server.';
-          console.error(message);
-          setPushError(message);
-          setPushStatus('unknown');
           return;
         }
 
@@ -156,6 +166,7 @@ function GiardinierePage() {
 
       setPushStatus('subscribed');
       setPushError(null);
+      window.localStorage.setItem('pushVapidPublicKey', serverPublicKey);
       setServiceWorkerControlled(!!navigator.serviceWorker.controller);
     } catch (error) {
       console.error('Push registration failed', error);
