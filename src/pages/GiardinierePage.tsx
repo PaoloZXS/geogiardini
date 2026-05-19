@@ -49,8 +49,6 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>("default");
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
-  const [pushTestMessage, setPushTestMessage] = useState<string | null>(null);
-  const [isTestPushSending, setIsTestPushSending] = useState(false);
   const [inAppPopup, setInAppPopup] = useState<{
     title: string;
     body: string;
@@ -251,41 +249,6 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
       );
       setPushStatus("denied");
       setServiceWorkerControlled(!!navigator.serviceWorker.controller);
-    }
-  };
-
-  const sendPushTest = async () => {
-    if (!userId) {
-      return;
-    }
-    setPushTestMessage(null);
-    setIsTestPushSending(true);
-    try {
-      const response = await fetch("/api/push-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          giardiniereId: userId,
-          title: "Test notifiche push",
-          message:
-            "Questa è una notifica di prova inviata direttamente al tuo dispositivo."
-        })
-      });
-      const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success) {
-        throw new Error(
-          result?.message || `Test push fallito: ${response.status}`
-        );
-      }
-      setPushTestMessage(
-        "Test push inviato. Se il browser supporta il background push, riceverai una notifica anche con l'app chiusa."
-      );
-    } catch (error) {
-      setPushTestMessage(
-        error instanceof Error ? error.message : "Errore invio test push."
-      );
-    } finally {
-      setIsTestPushSending(false);
     }
   };
 
@@ -690,23 +653,6 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
                 {pushStatus === "unknown" &&
                   "Le notifiche push saranno attivate automaticamente."}
               </p>
-              {pushStatus === "subscribed" ? (
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={sendPushTest}
-                    disabled={isTestPushSending}
-                  >
-                    {isTestPushSending ? "Invio test..." : "Invia test push"}
-                  </button>
-                  {pushTestMessage ? (
-                    <p className="text-sm text-on-surface-variant">
-                      {pushTestMessage}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
               {pushError ? (
                 <div className="mt-3 rounded-xl border border-error/40 bg-error/10 p-3 text-sm text-error">
                   <strong>Errore push:</strong> {pushError}
