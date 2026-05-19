@@ -354,9 +354,7 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
 
       try {
         const [notificheRes, appointmentsRes] = await Promise.all([
-          fetch(
-            `/api/notifiche?giardiniereId=${encodeURIComponent(userId)}&read=0`
-          ),
+          fetch(`/api/notifiche?giardiniereId=${encodeURIComponent(userId)}`),
           fetch(`/api/appuntamenti?giardiniereId=${encodeURIComponent(userId)}`)
         ]);
 
@@ -598,9 +596,12 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
   };
 
   const unreadNotifications = notifications.filter((item) => item.read === 0);
+  const readNotifications = notifications.filter((item) => item.read === 1);
   const unreadCount = unreadNotifications.length;
+  const readCount = readNotifications.length;
   const appointmentCount = appointments.length;
   const hasUnreadNotifications = unreadCount > 0;
+  const hasReadNotifications = readCount > 0;
 
   useEffect(() => {
     if (showUnreadNotifications && unreadSectionRef.current) {
@@ -711,8 +712,8 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
               style={{ backgroundColor: "#16a34a", borderColor: "#15803d" }}
             >
               {showCompletedAppointments
-                ? `${appointmentCount} notifiche lette da evadere · chiudi`
-                : `${appointmentCount} notifiche lette da evadere`}
+                ? `${readCount} notifiche lette · chiudi`
+                : `${readCount} notifiche lette`}
             </button>
           </div>
           <button
@@ -834,7 +835,7 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
               <div className="bg-surface-container-low pb-4 border-b border-outline-variant">
                 <div className="mb-4">
                   <h2 className="font-headline-sm text-headline-sm font-semibold ml-1 text-on-surface">
-                    Appuntamenti eseguiti
+                    Notifiche lette
                   </h2>
                 </div>
               </div>
@@ -843,37 +844,44 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
                   <p className="text-sm text-on-surface-variant">
                     Caricamento...
                   </p>
-                ) : appointments.length === 0 ? (
+                ) : readNotifications.length === 0 ? (
                   <p className="text-sm text-on-surface-variant">
-                    Nessun appuntamento assegnato.
+                    Nessuna notifica letta.
                   </p>
                 ) : (
-                  <div className="space-y-4">
-                    {appointments.map((appointment) => (
+                  <div className="space-y-3">
+                    {readNotifications.map((notification) => (
                       <div
-                        key={appointment.id}
-                        className="rounded-2xl border border-outline-variant bg-surface p-4"
+                        key={notification.id}
+                        className="rounded-2xl border border-outline-variant bg-surface p-4 transition"
                       >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-label-md text-label-md font-semibold text-on-surface">
-                              {appointment.clienteNome}
-                            </p>
-                            <p className="text-sm text-on-surface-variant">
-                              {appointment.data}
-                            </p>
+                            {(() => {
+                              const formatted =
+                                formatNotification(notification);
+                              return (
+                                <>
+                                  <p className="font-label-md text-label-md font-semibold text-on-surface">
+                                    {formatted.title}
+                                  </p>
+                                  <div className="text-sm text-on-surface-variant mt-1 whitespace-pre-wrap">
+                                    {formatted.lines.map((line, index) => (
+                                      <p key={index} className="break-words">
+                                        {line}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
-                          <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                            {appointment.attivita.length > 0
-                              ? appointment.attivita.join(", ")
-                              : "Nessuna attività"}
-                          </div>
+                          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <span className="material-symbols-outlined text-lg">
+                              check_circle
+                            </span>
+                          </span>
                         </div>
-                        {appointment.note ? (
-                          <p className="mt-3 text-sm text-on-surface-variant">
-                            Note: {appointment.note}
-                          </p>
-                        ) : null}
                       </div>
                     ))}
                   </div>
