@@ -114,12 +114,32 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
+      .then(async (clients) => {
         for (const client of clients) {
           if ("focus" in client && sameRoute(client.url, targetUrl)) {
             return client.focus();
           }
         }
+
+        for (const client of clients) {
+          try {
+            const current = new URL(client.url);
+            const desired = new URL(targetUrl, self.location.origin);
+            if (current.origin !== desired.origin) {
+              continue;
+            }
+
+            if ("navigate" in client) {
+              await client.navigate(targetUrl);
+            }
+            if ("focus" in client) {
+              return client.focus();
+            }
+          } catch {
+            // Ignore malformed client URLs and try next window.
+          }
+        }
+
         if (self.clients.openWindow) {
           return self.clients.openWindow(targetUrl);
         }
