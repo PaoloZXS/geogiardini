@@ -13,6 +13,16 @@ App React + PWA per gestione aree verdi e dashboard admin.
    npm run dev
    ```
 
+### Avvio locale completo
+
+Per avviare sia frontend che backend in locale con le impostazioni già presenti in `.env.local`:
+
+```bash
+npm run local
+```
+
+In alternativa, `npm run server` ora carica automaticamente `.env.local` prima di avviare il backend.
+
 ## Struttura principale
 
 - `src/App.tsx` definisce il routing dell'app

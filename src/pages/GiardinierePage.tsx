@@ -18,10 +18,13 @@ const urlBase64ToUint8Array = (base64String: string) => {
 
 type NotificationItem = {
   id: string;
+  titolo?: string;
   title: string;
   message: string;
   read: number;
   created_at: string;
+  appuntamento_id?: string;
+  cliente_nome?: string;
 };
 
 type AppointmentItem = {
@@ -503,11 +506,23 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
     const appointmentAltTitleMatch = notification.title.match(
       /^Appuntamento da\s*:$/i
     );
-    if (appointmentTitleMatch || appointmentAltTitleMatch) {
+    const message = notification.message || "";
+    const appointmentMessageMatch =
+      /^Cliente\s*:\s*(.+)$/m.test(message) &&
+      /(?:Attività da svolgere|Attivita' da svolgere|Attivita'\s*:\s*|Attività\s*:\s*)(.+)/im.test(
+        message
+      );
+    const appointmentId = notification.appuntamento_id?.toString?.().trim();
+
+    if (
+      appointmentTitleMatch ||
+      appointmentAltTitleMatch ||
+      appointmentMessageMatch ||
+      Boolean(appointmentId)
+    ) {
       const clienteName = appointmentTitleMatch
         ? appointmentTitleMatch[1].trim()
         : "";
-      const message = notification.message || "";
       const lines: string[] = [];
 
       if (clienteName) {
@@ -516,6 +531,8 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
         const clientMatch = message.match(/^Cliente\s*:\s*(.+)$/m);
         if (clientMatch?.[1]) {
           lines.push(`Cliente : ${clientMatch[1].trim()}`);
+        } else if (notification.cliente_nome) {
+          lines.push(`Cliente : ${notification.cliente_nome}`);
         }
       }
 
@@ -665,9 +682,10 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
             {hasUnreadNotifications ? (
               <button
                 type="button"
-                onClick={() =>
-                  setShowUnreadNotifications((current) => !current)
-                }
+                onClick={() => {
+                  setShowUnreadNotifications((current) => !current);
+                  setShowCompletedAppointments(false);
+                }}
                 className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white border transition"
                 style={{ backgroundColor: "#b91c1c", borderColor: "#991b1b" }}
               >
@@ -685,9 +703,10 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
             )}
             <button
               type="button"
-              onClick={() =>
-                setShowCompletedAppointments((current) => !current)
-              }
+              onClick={() => {
+                setShowCompletedAppointments((current) => !current);
+                setShowUnreadNotifications(false);
+              }}
               className="w-full rounded-full px-4 py-2 text-sm font-semibold text-white border transition"
               style={{ backgroundColor: "#16a34a", borderColor: "#15803d" }}
             >
@@ -723,140 +742,143 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
           {showUnreadNotifications && (
             <section
               ref={unreadSectionRef}
-              className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm"
+              className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm max-h-[60vh] overflow-hidden"
             >
-              <div className="flex items-center justify-between gap-2 mb-4">
-                <div>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">
-                    Notifiche
-                  </p>
-                  <h2 className="font-headline-sm text-headline-sm">
-                    Notifiche non lette
-                  </h2>
+              <div className="bg-surface-container-low pb-4 border-b border-outline-variant">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h2 className="font-headline-sm text-headline-sm text-error font-semibold ml-1">
+                      Notifiche non lette
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRefreshKey((current) => current + 1)}
+                    className="rounded-full border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition hover:bg-surface-container-high"
+                  >
+                    Aggiorna
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setRefreshKey((current) => current + 1)}
-                  className="rounded-full border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface transition hover:bg-surface-container-high"
-                >
-                  Aggiorna
-                </button>
               </div>
-              {loading ? (
-                <p className="text-sm text-on-surface-variant">
-                  Caricamento...
-                </p>
-              ) : unreadNotifications.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">
-                  Nessuna notifica non letta.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {unreadNotifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className="rounded-2xl border border-outline-variant bg-surface p-4 transition"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          {(() => {
-                            const formatted = formatNotification(notification);
-                            return (
-                              <>
-                                <p className="font-label-md text-label-md font-semibold text-on-surface">
-                                  {formatted.title}
-                                </p>
-                                <div className="text-sm text-on-surface-variant mt-1 whitespace-pre-wrap overflow-x-auto">
-                                  {formatted.lines.map((line, index) => (
-                                    <p
-                                      key={index}
-                                      className="whitespace-nowrap"
-                                    >
-                                      {line}
-                                    </p>
-                                  ))}
-                                </div>
-                              </>
-                            );
-                          })()}
+              <div className="overflow-y-auto max-h-[calc(60vh-6.5rem)]">
+                {loading ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Caricamento...
+                  </p>
+                ) : unreadNotifications.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Nessuna notifica non letta.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {unreadNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="rounded-2xl border border-outline-variant bg-surface p-4 transition"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            {(() => {
+                              const formatted =
+                                formatNotification(notification);
+                              return (
+                                <>
+                                  <p className="font-label-md text-label-md font-semibold text-on-surface">
+                                    {formatted.title}
+                                  </p>
+                                  <div className="text-sm text-on-surface-variant mt-1 whitespace-pre-wrap">
+                                    {formatted.lines.map((line, index) => (
+                                      <p key={index} className="break-words">
+                                        {line}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                          {notification.read === 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                markNotificationRead(notification.id)
+                              }
+                              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface transition hover:bg-surface-container-high"
+                              aria-label="Segna come letta"
+                            >
+                              <span className="material-symbols-outlined text-lg">
+                                check_circle_outline
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                              <span className="material-symbols-outlined text-lg">
+                                check_circle
+                              </span>
+                            </span>
+                          )}
                         </div>
-                        {notification.read === 0 ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              markNotificationRead(notification.id)
-                            }
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface transition hover:bg-surface-container-high"
-                            aria-label="Segna come letta"
-                          >
-                            <span className="material-symbols-outlined text-lg">
-                              check_circle_outline
-                            </span>
-                          </button>
-                        ) : (
-                          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-                            <span className="material-symbols-outlined text-lg">
-                              check_circle
-                            </span>
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
           {showCompletedAppointments && (
             <section
               ref={completedSectionRef}
-              className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm"
+              className="rounded-3xl border border-outline-variant bg-surface-container-low p-5 shadow-sm max-h-[60vh] overflow-hidden"
             >
-              <div className="mb-4">
-                <p className="font-label-sm text-label-sm text-on-surface-variant">
-                  Appuntamenti eseguiti
-                </p>
-              </div>
-              {loading ? (
-                <p className="text-sm text-on-surface-variant">
-                  Caricamento...
-                </p>
-              ) : appointments.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">
-                  Nessun appuntamento assegnato.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {appointments.map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className="rounded-2xl border border-outline-variant bg-surface p-4"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="font-label-md text-label-md font-semibold text-on-surface">
-                            {appointment.clienteNome}
-                          </p>
-                          <p className="text-sm text-on-surface-variant">
-                            {appointment.data}
-                          </p>
-                        </div>
-                        <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                          {appointment.attivita.length > 0
-                            ? appointment.attivita.join(", ")
-                            : "Nessuna attività"}
-                        </div>
-                      </div>
-                      {appointment.note ? (
-                        <p className="mt-3 text-sm text-on-surface-variant">
-                          Note: {appointment.note}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
+              <div className="bg-surface-container-low pb-4 border-b border-outline-variant">
+                <div className="mb-4">
+                  <h2 className="font-headline-sm text-headline-sm font-semibold ml-1 text-on-surface">
+                    Appuntamenti eseguiti
+                  </h2>
                 </div>
-              )}
+              </div>
+              <div className="overflow-y-auto max-h-[calc(60vh-6.5rem)]">
+                {loading ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Caricamento...
+                  </p>
+                ) : appointments.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Nessun appuntamento assegnato.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {appointments.map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="rounded-2xl border border-outline-variant bg-surface p-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="font-label-md text-label-md font-semibold text-on-surface">
+                              {appointment.clienteNome}
+                            </p>
+                            <p className="text-sm text-on-surface-variant">
+                              {appointment.data}
+                            </p>
+                          </div>
+                          <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                            {appointment.attivita.length > 0
+                              ? appointment.attivita.join(", ")
+                              : "Nessuna attività"}
+                          </div>
+                        </div>
+                        {appointment.note ? (
+                          <p className="mt-3 text-sm text-on-surface-variant">
+                            Note: {appointment.note}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
           )}
         </div>
