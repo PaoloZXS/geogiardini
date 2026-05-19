@@ -1,4 +1,5 @@
 import { createDbClient } from "../../db.js";
+import { sendPushToAdmins } from "../../../../lib/push.js";
 
 async function ensureNotificheTable(db: any) {
   await db.execute(
@@ -28,7 +29,39 @@ export default async function handler(req: any, res: any) {
 
     const db = await createDbClient();
     await ensureNotificheTable(db);
-    await db.execute("UPDATE notifiche SET read = 1 WHERE id = ?", [id]);
+
+    const existingResult = await db.execute(
+      "SELECT read FROM notifiche WHERE id = ? LIMIT 1",
+      [id]
+    );
+    const existingRow = Array.isArray(existingResult.rows)
+      ? existingResult.rows[0]
+      : null;
+    const wasAlreadyRead = Number(existingRow?.read ?? 0) === 1;
+
+    if (!wasAlreadyRead) {
+      await db.execute("UPDATE notifiche SET read = 1 WHERE id = ?", [id]);
+    }
+
+    if (!wasAlreadyRead) {
+      try {
+        await sendPushToAdmins(db, {
+          title: "Notifica letta",
+          body: "Un giardiniere ha letto una notifica.",
+          data: {
+            url: "/admin",
+            type: "read-confirmation",
+            notificationId: id,
+            badgeCount: 1
+          }
+        });
+      } catch (pushError) {
+        console.error(
+          "Admin push send in notifiche read API failed",
+          pushError
+        );
+      }
+    }
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");

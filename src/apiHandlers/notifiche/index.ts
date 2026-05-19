@@ -233,6 +233,23 @@ export default async function handler(req: any, res: any) {
       console.error("Push send in notifiche API failed", pushError);
     }
 
+    try {
+      const { sendPushToAdmins } = await import("../../../lib/push.js");
+      await sendPushToAdmins(db, {
+        title: "Avviso inviato",
+        body: `Hai inviato un avviso a ${recipients.length} giardinieri.`,
+        data: {
+          url: "/admin",
+          type: "admin-confirmation",
+          clienteId: trimmedClienteId || null,
+          createdAt,
+          badgeCount: 1
+        }
+      });
+    } catch (adminPushError) {
+      console.error("Admin push send in notifiche API failed", adminPushError);
+    }
+
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.end(

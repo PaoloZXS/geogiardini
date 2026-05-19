@@ -359,6 +359,26 @@ export default async function handler(req: any, res: any) {
       console.error("Push send in appuntamenti API failed", pushError);
     }
 
+    try {
+      const { sendPushToAdmins } = await import("../../../lib/push.js");
+      await sendPushToAdmins(db, {
+        title: "Appuntamento inviato",
+        body: `Hai inviato un nuovo appuntamento a ${selectedGiardinieri.length} giardinieri.`,
+        data: {
+          url: "/admin",
+          type: "admin-confirmation",
+          appointmentId,
+          createdAt: new Date().toISOString(),
+          badgeCount: 1
+        }
+      });
+    } catch (adminPushError) {
+      console.error(
+        "Admin push send in appuntamenti API failed",
+        adminPushError
+      );
+    }
+
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.end(

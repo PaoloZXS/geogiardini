@@ -1,6 +1,17 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
 function AdminPage() {
   const navigate = useNavigate();
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
@@ -153,6 +164,73 @@ function AdminPage() {
     }
   };
 
+  const registerAdminPushSubscription = async () => {
+    if (
+      typeof window === "undefined" ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window) ||
+      !("Notification" in window)
+    ) {
+      return;
+    }
+
+    try {
+      await navigator.serviceWorker.register("/sw.js");
+      const registration = await navigator.serviceWorker.ready;
+      if (!registration) {
+        return;
+      }
+
+      if (Notification.permission === "default") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          return;
+        }
+      }
+
+      if (Notification.permission !== "granted") {
+        return;
+      }
+
+      const publicKeyResponse = await fetch("/api/push-public-key");
+      const publicKeyData = await publicKeyResponse.json().catch(() => null);
+      if (!publicKeyResponse.ok) {
+        return;
+      }
+
+      const serverPublicKey = publicKeyData?.publicKey || "";
+      const applicationServerKey = urlBase64ToUint8Array(serverPublicKey);
+      if (!applicationServerKey.length) {
+        return;
+      }
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      }
+
+      const subscriptionPayload =
+        typeof subscription?.toJSON === "function"
+          ? subscription.toJSON()
+          : subscription;
+
+      await fetch("/api/push-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientType: "admin",
+          recipientId: "admin",
+          subscription: subscriptionPayload
+        })
+      });
+    } catch (error) {
+      console.error("Admin push registration failed", error);
+    }
+  };
+
   const statusBoxClasses = `absolute left-1/2 top-1/2 z-[9999] w-[min(680px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl px-4 py-3 text-center text-sm font-medium shadow-2xl transition-transform duration-200 ${
     statusType === "success"
       ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
@@ -167,6 +245,10 @@ function AdminPage() {
         window.clearTimeout(statusTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    void registerAdminPushSubscription();
   }, []);
 
   const clearStatusAfterDelay = () => {
