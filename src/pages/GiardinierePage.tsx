@@ -501,6 +501,13 @@ function GiardinierePage() {
           method: "POST"
         });
       }
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`/api/notifiche-read?id=${encodeURIComponent(id)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+      }
       if (!response.ok) {
         const responseText = await response.text().catch(() => "");
         let data: any = null;
