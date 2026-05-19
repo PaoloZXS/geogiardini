@@ -6,6 +6,16 @@ import ClientePage from "./pages/ClientePage";
 import GiardinierePage from "./pages/GiardinierePage";
 import "./styles/login.css";
 
+function clearStoredAuth() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem("loginRole");
+  window.localStorage.removeItem("loginUsername");
+  window.localStorage.removeItem("userId");
+}
+
 function App() {
   const [authenticatedRole, setAuthenticatedRole] = useState<
     "admin" | "cliente" | "giardiniere" | null
@@ -33,12 +43,18 @@ function App() {
       return;
     }
 
-    window.localStorage.removeItem("loginRole");
-    window.localStorage.removeItem("loginUsername");
-    window.localStorage.removeItem("userId");
+    clearStoredAuth();
     setAuthenticatedRole(null);
     setAuthResolved(true);
   }, []);
+
+  const handleLogout = () => {
+    clearStoredAuth();
+    setAuthenticatedRole(null);
+    if (typeof window !== "undefined") {
+      window.location.hash = "#/geologin";
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator))
@@ -103,7 +119,7 @@ function App() {
           path="/admin"
           element={
             authenticatedRole === "admin" ? (
-              <AdminPage />
+              <AdminPage onLogout={handleLogout} />
             ) : (
               <Navigate to="/" replace />
             )
@@ -123,7 +139,7 @@ function App() {
           path="/giardiniere"
           element={
             authenticatedRole === "giardiniere" ? (
-              <GiardinierePage />
+              <GiardinierePage onLogout={handleLogout} />
             ) : (
               <Navigate to="/" replace />
             )

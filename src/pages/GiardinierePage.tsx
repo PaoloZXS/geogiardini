@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+type GiardinierePageProps = {
+  onLogout: () => void;
+};
+
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -29,7 +33,7 @@ type AppointmentItem = {
   giardinieri: Array<{ id: string; username: string }>;
 };
 
-function GiardinierePage() {
+function GiardinierePage({ onLogout }: GiardinierePageProps) {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
@@ -525,15 +529,8 @@ function GiardinierePage() {
   };
 
   const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("userId");
-      window.localStorage.removeItem("loginUsername");
-      window.localStorage.removeItem("loginRole");
-      updateAppBadge(0);
-      window.location.replace("/#/geologin");
-      return;
-    }
-    navigate("/geologin", { replace: true });
+    updateAppBadge(0);
+    onLogout();
   };
 
   const formatNotification = (notification: NotificationItem) => {

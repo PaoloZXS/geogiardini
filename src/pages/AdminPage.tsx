@@ -1,6 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+type AdminPageProps = {
+  onLogout: () => void;
+};
+
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -12,7 +16,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
-function AdminPage() {
+function AdminPage({ onLogout }: AdminPageProps) {
   const navigate = useNavigate();
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -857,14 +861,7 @@ function AdminPage() {
 
   const handleLogout = () => {
     handleCloseForm();
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("userId");
-      window.localStorage.removeItem("loginUsername");
-      window.localStorage.removeItem("loginRole");
-      window.location.replace("/#/geologin");
-      return;
-    }
-    navigate("/geologin", { replace: true });
+    onLogout();
   };
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
