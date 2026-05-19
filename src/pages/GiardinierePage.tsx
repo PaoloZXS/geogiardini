@@ -512,6 +512,18 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
       );
     const appointmentId = notification.appuntamento_id?.toString?.().trim();
 
+    const appointmentDateMatch =
+      message.match(/Data Appuntamento\s*:\s*(.+)$/im) ||
+      message.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    const appointmentDate = appointmentDateMatch?.[1]
+      ? (() => {
+          const parsed = new Date(appointmentDateMatch[1].trim());
+          return !Number.isNaN(parsed.getTime())
+            ? parsed.toLocaleDateString("it-IT")
+            : appointmentDateMatch[1].trim();
+        })()
+      : null;
+
     if (
       appointmentTitleMatch ||
       appointmentAltTitleMatch ||
@@ -550,20 +562,8 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
         }
       }
 
-      const dateMatch =
-        message.match(/Data Appuntamento\s*:\s*(.+)$/im) ||
-        message.match(/\b(\d{4}-\d{2}-\d{2})\b/);
-      if (dateMatch?.[1]) {
-        const parsed = new Date(dateMatch[1].trim());
-        if (!Number.isNaN(parsed.getTime())) {
-          lines.push(`Data attività : ${parsed.toLocaleDateString("it-IT")}`);
-        } else {
-          lines.push(`Data attività : ${dateMatch[1].trim()}`);
-        }
-      }
-
       return {
-        title: "Nuovo Appuntamento :",
+        title: `Nuovo Appuntamento :${appointmentDate ? ` ${appointmentDate}` : ""}`,
         lines
       };
     }
@@ -580,11 +580,16 @@ function GiardinierePage({ onLogout }: GiardinierePageProps) {
       if (msgMatch?.[1]) {
         lines.push(`Avviso : ${msgMatch[1].trim()}`);
       }
-      lines.push(
-        `Data avviso : ${new Date(notification.created_at).toLocaleDateString("it-IT")}`
-      );
+      const avvisoDateMatch =
+        message.match(/Data avviso\s*:\s*(.+)$/im) || notification.created_at
+          ? [
+              null,
+              new Date(notification.created_at).toLocaleDateString("it-IT")
+            ]
+          : null;
+      const avvisoDate = avvisoDateMatch?.[1] ?? null;
       return {
-        title: notification.title,
+        title: `${notification.title}${avvisoDate ? ` ${avvisoDate}` : ""}`,
         lines
       };
     }
