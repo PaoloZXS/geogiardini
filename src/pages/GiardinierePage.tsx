@@ -45,9 +45,6 @@ function GiardinierePage() {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>("default");
   const [serviceWorkerControlled, setServiceWorkerControlled] = useState(false);
-  const [subscriptionEndpoint, setSubscriptionEndpoint] = useState<
-    string | null
-  >(null);
   const [pushTestMessage, setPushTestMessage] = useState<string | null>(null);
   const [isTestPushSending, setIsTestPushSending] = useState(false);
   const [inAppPopup, setInAppPopup] = useState<{
@@ -143,9 +140,6 @@ function GiardinierePage() {
       }
 
       let subscription = await registration.pushManager.getSubscription();
-      if (subscription?.endpoint) {
-        setSubscriptionEndpoint(subscription.endpoint.toString());
-      }
 
       const publicKeyResponse = await fetch("/api/push-public-key");
       const publicKeyData = await publicKeyResponse.json().catch(() => null);
@@ -243,8 +237,6 @@ function GiardinierePage() {
 
       setPushStatus("subscribed");
       setPushError(null);
-      const endpoint = (subscription as any)?.endpoint?.toString?.() ?? null;
-      setSubscriptionEndpoint(endpoint);
       window.localStorage.setItem("pushVapidPublicKey", serverPublicKey);
       setServiceWorkerControlled(!!navigator.serviceWorker.controller);
     } catch (error) {
@@ -339,16 +331,11 @@ function GiardinierePage() {
     window.addEventListener("focus", refreshNotifications);
     document.addEventListener("visibilitychange", refreshNotifications);
 
-    const intervalId = window.setInterval(() => {
-      setRefreshKey((current) => current + 1);
-    }, 10000);
-
     return () => {
       window.removeEventListener("focus", refreshPushSubscription);
       document.removeEventListener("visibilitychange", refreshPushSubscription);
       window.removeEventListener("focus", refreshNotifications);
       document.removeEventListener("visibilitychange", refreshNotifications);
-      window.clearInterval(intervalId);
     };
   }, [userId]);
 
@@ -502,11 +489,14 @@ function GiardinierePage() {
         });
       }
       if (response.status === 405 || response.status === 404) {
-        response = await fetch(`/api/notifiche-read?id=${encodeURIComponent(id)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id })
-        });
+        response = await fetch(
+          `/api/notifiche-read?id=${encodeURIComponent(id)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id })
+          }
+        );
       }
       if (!response.ok) {
         const responseText = await response.text().catch(() => "");
@@ -701,14 +691,6 @@ function GiardinierePage() {
                 {pushStatus === "unknown" &&
                   "Le notifiche push saranno attivate automaticamente."}
               </p>
-              {subscriptionEndpoint ? (
-                <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-on-surface-variant">
-                  <strong>Endpoint sottoscrizione:</strong>
-                  <div className="truncate break-all">
-                    {subscriptionEndpoint}
-                  </div>
-                </div>
-              ) : null}
               {pushStatus === "subscribed" ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button
