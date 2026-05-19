@@ -10,20 +10,26 @@ function App() {
   const [authenticatedRole, setAuthenticatedRole] = useState<
     "admin" | "cliente" | "giardiniere" | null
   >(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [pushNotification, setPushNotification] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      setAuthResolved(true);
+      return;
+    }
     const stored = window.localStorage.getItem("loginRole");
     const storedUserId = window.localStorage.getItem("userId");
 
     if (stored === "admin") {
       setAuthenticatedRole("admin");
+      setAuthResolved(true);
       return;
     }
 
     if ((stored === "cliente" || stored === "giardiniere") && storedUserId) {
       setAuthenticatedRole(stored);
+      setAuthResolved(true);
       return;
     }
 
@@ -31,6 +37,7 @@ function App() {
     window.localStorage.removeItem("loginUsername");
     window.localStorage.removeItem("userId");
     setAuthenticatedRole(null);
+    setAuthResolved(true);
   }, []);
 
   useEffect(() => {
@@ -53,21 +60,26 @@ function App() {
       navigator.serviceWorker.removeEventListener("message", handleSwMessage);
   }, []);
 
+  if (!authResolved) {
+    return null;
+  }
+
+  const homeElement =
+    authenticatedRole === "admin" ? (
+      <Navigate to="/admin" replace />
+    ) : authenticatedRole === "cliente" ? (
+      <Navigate to="/cliente" replace />
+    ) : authenticatedRole === "giardiniere" ? (
+      <Navigate to="/giardiniere" replace />
+    ) : (
+      <LoginPage onLoginSuccess={(role) => setAuthenticatedRole(role)} />
+    );
+
   return (
     <HashRouter>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <LoginPage onLoginSuccess={(role) => setAuthenticatedRole(role)} />
-          }
-        />
-        <Route
-          path="/geologin"
-          element={
-            <LoginPage onLoginSuccess={(role) => setAuthenticatedRole(role)} />
-          }
-        />
+        <Route path="/" element={homeElement} />
+        <Route path="/geologin" element={homeElement} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route
           path="/admin"
