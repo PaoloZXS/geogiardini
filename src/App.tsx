@@ -52,6 +52,24 @@ function App() {
           "pushNotificationReceived",
           Date.now().toString()
         );
+        return;
+      }
+
+      if (event.data?.type === "NAVIGATE_TO") {
+        const targetUrl = event.data?.targetUrl?.toString?.() ?? "";
+        if (!targetUrl) {
+          return;
+        }
+
+        try {
+          const normalizedTarget = new URL(targetUrl, window.location.origin);
+          const nextHash = normalizedTarget.hash || "#/";
+          if (window.location.hash !== nextHash) {
+            window.location.hash = nextHash;
+          }
+        } catch {
+          // Ignore malformed navigation targets from the service worker.
+        }
       }
     };
 

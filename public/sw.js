@@ -129,9 +129,10 @@ self.addEventListener("notificationclick", (event) => {
               continue;
             }
 
-            if ("navigate" in client) {
-              await client.navigate(targetUrl);
-            }
+            client.postMessage({
+              type: "NAVIGATE_TO",
+              targetUrl
+            });
             if ("focus" in client) {
               return client.focus();
             }
