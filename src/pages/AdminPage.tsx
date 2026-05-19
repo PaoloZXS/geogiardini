@@ -1160,6 +1160,7 @@ function AdminPage() {
         </div>
         <div className="flex items-center gap-md">
           <button
+            type="button"
             onClick={handleLogout}
             className="w-touch-target-min h-touch-target-min flex items-center justify-center rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-150"
             aria-label="Logout"

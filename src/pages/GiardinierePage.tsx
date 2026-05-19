@@ -530,6 +530,8 @@ function GiardinierePage() {
       window.localStorage.removeItem("loginUsername");
       window.localStorage.removeItem("loginRole");
       updateAppBadge(0);
+      window.location.replace("/#/geologin");
+      return;
     }
     navigate("/geologin", { replace: true });
   };
