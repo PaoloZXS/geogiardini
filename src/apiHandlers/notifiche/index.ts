@@ -144,7 +144,7 @@ export default async function handler(req: any, res: any) {
 
     const { title, message, giardinieriIds, clienteId } = req.body ?? {};
     const trimmedTitle =
-      title?.toString().trim() || "Messaggio dall' Amministratore";
+      title?.toString().trim() || "Messaggio in arrivo dall'amministratore :";
     const trimmedMessage = message?.toString().trim();
     const trimmedClienteId = clienteId?.toString().trim();
     const selectedGiardinieri = Array.isArray(giardinieriIds)
