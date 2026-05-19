@@ -493,9 +493,14 @@ function GiardinierePage() {
 
   const markNotificationRead = async (id: string) => {
     try {
-      const response = await fetch(`/api/notifiche/${id}/read`, {
+      let response = await fetch(`/api/notifiche/${id}/read`, {
         method: "PUT"
       });
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`/api/notifiche/${id}/read`, {
+          method: "POST"
+        });
+      }
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(data?.message || "Errore segnare notifica come letta.");

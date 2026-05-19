@@ -9,7 +9,7 @@ async function ensureNotificheTable(db: any) {
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== "PUT") {
+  if (req.method !== "PUT" && req.method !== "POST") {
     res.statusCode = 405;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ success: false, message: "Method not allowed." }));
@@ -31,16 +31,16 @@ export default async function handler(req: any, res: any) {
     await ensureNotificheTable(db);
 
     const existingResult = await db.execute(
-      "SELECT read FROM notifiche WHERE id = ? LIMIT 1",
+      'SELECT n."read" AS is_read FROM notifiche n WHERE n.id = ? LIMIT 1',
       [id]
     );
     const existingRow = Array.isArray(existingResult.rows)
       ? existingResult.rows[0]
       : null;
-    const wasAlreadyRead = Number(existingRow?.read ?? 0) === 1;
+    const wasAlreadyRead = Number(existingRow?.is_read ?? 0) === 1;
 
     if (!wasAlreadyRead) {
-      await db.execute("UPDATE notifiche SET read = 1 WHERE id = ?", [id]);
+      await db.execute('UPDATE notifiche SET "read" = 1 WHERE id = ?', [id]);
     }
 
     if (!wasAlreadyRead) {
