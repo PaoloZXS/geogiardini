@@ -129,41 +129,6 @@ function AdminPage() {
     }>
   >([]);
 
-  const showAdminDesktopNotification = async (message: string) => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      return;
-    }
-
-    try {
-      let permission = Notification.permission;
-      if (permission === "default") {
-        permission = await Notification.requestPermission();
-      }
-
-      if (permission !== "granted") {
-        return;
-      }
-
-      if ("serviceWorker" in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification("GeoGiardini Admin", {
-          body: message,
-          icon: "/leaf-512.png",
-          badge: "/leaf-512.png",
-          tag: "admin-read-confirmation"
-        });
-        return;
-      }
-
-      new Notification("GeoGiardini Admin", {
-        body: message,
-        icon: "/leaf-512.png"
-      });
-    } catch (error) {
-      console.error("Desktop notification admin failed", error);
-    }
-  };
-
   const registerAdminPushSubscription = async () => {
     if (
       typeof window === "undefined" ||
@@ -475,7 +440,6 @@ function AdminPage() {
               : `${newlyRead.length} giardinieri hanno letto gli avvisi.`;
           setStatusType("success");
           setStatusMessage(message);
-          void showAdminDesktopNotification(message);
           clearStatusAfterDelay();
         }
       }

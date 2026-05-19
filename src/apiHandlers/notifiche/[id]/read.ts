@@ -46,9 +46,22 @@ export default async function handler(req: any, res: any) {
 
     if (updatedRows > 0) {
       try {
+        const readInfoResult = await db.execute(
+          "SELECT gi.username AS giardiniere_username FROM notifiche n LEFT JOIN giardinieri gi ON gi.id = n.giardiniere_id WHERE n.id = ? LIMIT 1",
+          [id]
+        );
+        const readInfoRow = Array.isArray(readInfoResult.rows)
+          ? readInfoResult.rows[0]
+          : null;
+        const giardiniereUsername =
+          readInfoRow?.giardiniere_username?.toString?.()?.trim?.() || "";
+        const readMessage = giardiniereUsername
+          ? `${giardiniereUsername} ha letto l'avviso.`
+          : "Un giardiniere ha letto l'avviso.";
+
         adminPushStats = await sendPushToAdmins(db, {
-          title: "Notifica letta",
-          body: "Un giardiniere ha letto una notifica.",
+          title: "GeoGiardini Admin",
+          body: readMessage,
           data: {
             url: "/admin",
             type: "read-confirmation",
