@@ -502,11 +502,15 @@ function GiardinierePage() {
         });
       }
       if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        const responseText = await response
-          .clone()
-          .text()
-          .catch(() => "");
+        const responseText = await response.text().catch(() => "");
+        let data: any = null;
+        if (responseText) {
+          try {
+            data = JSON.parse(responseText);
+          } catch {
+            data = null;
+          }
+        }
         throw new Error(
           data?.message ||
             `Errore segnare notifica come letta (HTTP ${response.status})${
