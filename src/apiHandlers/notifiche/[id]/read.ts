@@ -30,22 +30,23 @@ export default async function handler(req: any, res: any) {
     const db = await createDbClient();
     await ensureNotificheTable(db);
 
-    const existingResult = await db.execute(
-      'SELECT n."read" AS is_read FROM notifiche n WHERE n.id = ? LIMIT 1',
+    const updateResult = await db.execute(
+      'UPDATE notifiche SET "read" = 1 WHERE id = ? AND COALESCE("read", 0) = 0',
       [id]
     );
-    const existingRow = Array.isArray(existingResult.rows)
-      ? existingResult.rows[0]
-      : null;
-    const wasAlreadyRead = Number(existingRow?.is_read ?? 0) === 1;
+    const updatedRows = Number((updateResult as any)?.rowsAffected ?? 0);
 
-    if (!wasAlreadyRead) {
-      await db.execute('UPDATE notifiche SET "read" = 1 WHERE id = ?', [id]);
-    }
+    let adminPushStats = {
+      targetedRecipients: 1,
+      subscriptionCount: 0,
+      acceptedCount: 0,
+      failedCount: 0,
+      removedCount: 0
+    };
 
-    if (!wasAlreadyRead) {
+    if (updatedRows > 0) {
       try {
-        await sendPushToAdmins(db, {
+        adminPushStats = await sendPushToAdmins(db, {
           title: "Notifica letta",
           body: "Un giardiniere ha letto una notifica.",
           data: {
@@ -65,7 +66,13 @@ export default async function handler(req: any, res: any) {
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ success: true }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        updatedRows,
+        adminPushStats
+      })
+    );
   } catch (error: any) {
     console.error("Notifiche read API error", error);
     res.statusCode = 500;

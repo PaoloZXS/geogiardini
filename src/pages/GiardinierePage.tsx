@@ -503,7 +503,16 @@ function GiardinierePage() {
       }
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        throw new Error(data?.message || "Errore segnare notifica come letta.");
+        const responseText = await response
+          .clone()
+          .text()
+          .catch(() => "");
+        throw new Error(
+          data?.message ||
+            `Errore segnare notifica come letta (HTTP ${response.status})${
+              responseText ? `: ${responseText.slice(0, 180)}` : ""
+            }`
+        );
       }
       setRefreshKey((current) => current + 1);
     } catch (err) {
