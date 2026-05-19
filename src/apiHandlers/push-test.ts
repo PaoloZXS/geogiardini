@@ -62,7 +62,7 @@ export default async function handler(req: any, res: any) {
       title,
       body: message,
       data: {
-        url: "/giardiniere",
+        url: "/#/giardiniere",
         type: "push-test",
         createdAt: new Date().toISOString()
       }

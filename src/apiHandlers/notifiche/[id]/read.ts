@@ -63,7 +63,7 @@ export default async function handler(req: any, res: any) {
           title: "GeoGiardini Admin",
           body: readMessage,
           data: {
-            url: "/admin",
+            url: "/#/admin",
             type: "read-confirmation",
             notificationId: id,
             badgeCount: 1

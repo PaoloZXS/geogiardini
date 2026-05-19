@@ -81,14 +81,42 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || "/";
+  const normalizeTargetUrl = (rawUrl) => {
+    const value = typeof rawUrl === "string" && rawUrl.trim() ? rawUrl : "/";
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return value;
+    }
+    if (value.startsWith("/#") || value.startsWith("#")) {
+      return value.startsWith("#") ? `/${value}` : value;
+    }
+    if (value === "/") {
+      return "/#/";
+    }
+    return `/#${value.startsWith("/") ? value : `/${value}`}`;
+  };
+
+  const targetUrl = normalizeTargetUrl(event.notification.data?.url);
+
+  const sameRoute = (clientUrl, desiredUrl) => {
+    try {
+      const current = new URL(clientUrl);
+      const desired = new URL(desiredUrl, self.location.origin);
+      return (
+        current.origin === desired.origin &&
+        current.pathname === desired.pathname &&
+        current.hash === desired.hash
+      );
+    } catch {
+      return false;
+    }
+  };
 
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clients) => {
         for (const client of clients) {
-          if ("focus" in client && client.url === targetUrl) {
+          if ("focus" in client && sameRoute(client.url, targetUrl)) {
             return client.focus();
           }
         }

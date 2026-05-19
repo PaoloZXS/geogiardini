@@ -222,7 +222,7 @@ export default async function handler(req: any, res: any) {
         title: trimmedTitle,
         body: trimmedMessage,
         data: {
-          url: "/",
+          url: "/#/giardiniere",
           type: "notifica",
           clienteId: trimmedClienteId || null,
           createdAt
@@ -239,7 +239,7 @@ export default async function handler(req: any, res: any) {
         title: "Avviso inviato",
         body: `Hai inviato un avviso a ${recipients.length} giardinieri.`,
         data: {
-          url: "/admin",
+          url: "/#/admin",
           type: "admin-confirmation",
           clienteId: trimmedClienteId || null,
           createdAt,

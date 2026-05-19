@@ -348,7 +348,7 @@ export default async function handler(req: any, res: any) {
         title: notificationTitle,
         body: notificationMessage,
         data: {
-          url: "/giardiniere",
+          url: "/#/giardiniere",
           type: "appuntamento",
           clienteId: trimmedClienteId,
           appointmentId,
@@ -365,7 +365,7 @@ export default async function handler(req: any, res: any) {
         title: "Appuntamento inviato",
         body: `Hai inviato un nuovo appuntamento a ${selectedGiardinieri.length} giardinieri.`,
         data: {
-          url: "/admin",
+          url: "/#/admin",
           type: "admin-confirmation",
           appointmentId,
           createdAt: new Date().toISOString(),
