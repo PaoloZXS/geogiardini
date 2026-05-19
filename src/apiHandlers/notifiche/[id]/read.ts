@@ -60,7 +60,7 @@ export default async function handler(req: any, res: any) {
           : "Un giardiniere ha letto la notifica";
 
         adminPushStats = await sendPushToAdmins(db, {
-          title: "GeoGiardini - Messaggio in arrivo da un giardiniere :",
+          title: "Messaggio in arrivo da un giardiniere :",
           body: readMessage,
           data: {
             url: "/#/admin",
