@@ -56,11 +56,11 @@ export default async function handler(req: any, res: any) {
         const giardiniereUsername =
           readInfoRow?.giardiniere_username?.toString?.()?.trim?.() || "";
         const readMessage = giardiniereUsername
-          ? `${giardiniereUsername} ha letto l'avviso.`
-          : "Un giardiniere ha letto l'avviso.";
+          ? `${giardiniereUsername} ha letto la notifica`
+          : "Un giardiniere ha letto la notifica";
 
         adminPushStats = await sendPushToAdmins(db, {
-          title: "GeoGiardini Admin",
+          title: "GeoGiardini - Messaggio in arrivo da un giardiniere :",
           body: readMessage,
           data: {
             url: "/#/admin",
